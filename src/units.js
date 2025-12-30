@@ -1,414 +1,573 @@
-import { GameObject } from './objects.js';
+import { ENEMY_TYPES } from './data.js';
+import { distance } from './utils.js';
 
-export class Unit extends GameObject {
-    constructor(x, y, type) {
-        super(x, y, type);
-        this.speed = 0.1;
-        this.damage = 5;
-        this.attackRange = 40;
-        this.attackCooldown = 0;
-        this.attackRate = 1000;
-        this.team = 'neutral';
-        this.radius = 15;
+// Base Enemy class
+class Enemy {
+    constructor(x, y, config) {
+        this.x = x;
+        this.y = y;
+        this.config = config;
+        this.name = config.name;
+        this.type = config.type;
+
+        this.health = config.health;
+        this.maxHealth = config.health;
+        this.damage = config.damage;
+        this.speed = config.speed;
+        this.attackRange = config.attackRange;
+        this.sightRange = config.sightRange;
+        this.accuracy = config.accuracy;
+        this.color = config.color;
+        this.lootTable = config.lootTable;
+        this.isRanged = config.isRanged || false;
+
+        this.radius = 18;
+        this.active = true;
         this.target = null;
+        this.alerted = false;
+        this.angle = Math.random() * Math.PI * 2;
+
+        this.attackCooldown = 0;
+        this.attackRate = 1500;
+
+        this.xpValue = 50;
+
+        // Patrol
+        this.patrolPoint = { x, y };
+        this.wanderTimer = 0;
+        this.wanderAngle = Math.random() * Math.PI * 2;
     }
 
     update(deltaTime, game) {
+        if (!this.active) return;
+
         if (this.attackCooldown > 0) this.attackCooldown -= deltaTime;
-        // AI logic implemented in subclasses
+
+        const player = game.player;
+        if (!player || !player.alive) {
+            this.wander(deltaTime);
+            return;
+        }
+
+        const distToPlayer = distance(this.x, this.y, player.x, player.y);
+
+        // Detection
+        if (distToPlayer < this.sightRange || this.alerted) {
+            this.target = player;
+        }
+
+        if (this.target) {
+            this.pursueAndAttack(deltaTime, game);
+        } else {
+            this.wander(deltaTime);
+        }
     }
 
-    moveTowards(x, y, deltaTime) {
-        const dx = x - this.x;
-        const dy = y - this.y;
-        const dist = Math.sqrt(dx*dx + dy*dy);
+    pursueAndAttack(deltaTime, game) {
+        if (!this.target) return;
 
-        if (dist > 5) { // Don't jitter
-            this.x += (dx / dist) * this.speed * deltaTime;
-            this.y += (dy / dist) * this.speed * deltaTime;
-            // Face target
-            this.angle = Math.atan2(dy, dx);
+        const dist = distance(this.x, this.y, this.target.x, this.target.y);
+
+        // Face target
+        this.angle = Math.atan2(this.target.y - this.y, this.target.x - this.x);
+
+        if (dist > this.attackRange) {
+            // Move towards target
+            this.x += Math.cos(this.angle) * this.speed * deltaTime;
+            this.y += Math.sin(this.angle) * this.speed * deltaTime;
+        } else {
+            // Attack
+            if (this.attackCooldown <= 0) {
+                this.attack(game);
+                this.attackCooldown = this.attackRate;
+            }
         }
-        return dist;
+    }
+
+    attack(game) {
+        // Override in subclasses
+    }
+
+    wander(deltaTime) {
+        this.wanderTimer -= deltaTime;
+        if (this.wanderTimer <= 0) {
+            this.wanderTimer = 2000 + Math.random() * 3000;
+            this.wanderAngle = Math.random() * Math.PI * 2;
+        }
+
+        // Move towards wander direction slowly
+        this.x += Math.cos(this.wanderAngle) * this.speed * 0.3 * deltaTime;
+        this.y += Math.sin(this.wanderAngle) * this.speed * 0.3 * deltaTime;
+        this.angle = this.wanderAngle;
     }
 
     draw(ctx) {
         if (!this.active) return;
+
         ctx.save();
         ctx.translate(this.x, this.y);
 
-        // Bobbing Animation
+        // Bobbing animation
         const bob = Math.sin(Date.now() / 200) * 0.05;
         ctx.scale(1 + bob, 1 - bob);
 
-        // Draw Unit Circle
-        ctx.fillStyle = this.color || 'white';
+        // Body
+        ctx.fillStyle = this.color;
         ctx.beginPath();
-        ctx.arc(0, 0, this.radius, 0, Math.PI*2);
+        ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
         ctx.fill();
-        ctx.strokeStyle = 'black';
+        ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+        ctx.lineWidth = 2;
         ctx.stroke();
 
-        // Draw Eye/Direction
-        ctx.rotate(this.angle || 0);
-        ctx.fillStyle = 'black';
+        // Direction indicator
+        ctx.rotate(this.angle);
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
         ctx.beginPath();
-        ctx.arc(this.radius/2, 0, 3, 0, Math.PI*2);
+        ctx.arc(this.radius / 2, 0, 4, 0, Math.PI * 2);
         ctx.fill();
 
         ctx.restore();
 
-        // HP Bar
-        const hpPct = this.health / this.maxHealth;
-        ctx.fillStyle = 'red';
-        ctx.fillRect(this.x - 15, this.y - 25, 30, 4);
-        ctx.fillStyle = '#2ecc71';
-        ctx.fillRect(this.x - 15, this.y - 25, 30 * hpPct, 4);
+        // Health bar
+        if (this.health < this.maxHealth) {
+            const hpWidth = 30;
+            const hpPct = this.health / this.maxHealth;
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(this.x - hpWidth / 2 - 1, this.y - this.radius - 11, hpWidth + 2, 6);
+            ctx.fillStyle = '#c41e3a';
+            ctx.fillRect(this.x - hpWidth / 2, this.y - this.radius - 10, hpWidth, 4);
+            ctx.fillStyle = '#2ecc71';
+            ctx.fillRect(this.x - hpWidth / 2, this.y - this.radius - 10, hpWidth * hpPct, 4);
+        }
+
+        // Name
+        ctx.fillStyle = 'white';
+        ctx.font = '10px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(this.name, this.x, this.y - this.radius - 15);
     }
 }
 
-export class Peasant extends Unit {
-    constructor(x, y) {
-        super(x, y, 'peasant');
-        this.health = 50;
-        this.maxHealth = 50;
-        this.color = '#d35400';
-        this.team = 'player';
-        this.speed = 0.08;
+// Scav - Human enemy
+export class Scav extends Enemy {
+    constructor(x, y, armed = false) {
+        super(x, y, armed ? ENEMY_TYPES.scav_armed : ENEMY_TYPES.scav);
+        this.armed = armed;
+        this.attackRate = armed ? 1500 : 2000;
+        this.xpValue = armed ? 75 : 50;
     }
 
-    update(deltaTime, game) {
-        super.update(deltaTime, game);
-        if (!this.active) return;
-
-        const gameObjects = game.gameObjects;
-        const player = game.player;
-
-        // Find nearest resource
-        if (!this.target || !this.target.active) {
-            let minDist = Infinity;
-            let nearest = null;
-            for (const obj of gameObjects) {
-                if (!obj.active) continue;
-                if (obj.type === 'tree' || obj.type === 'stone') {
-                    const dx = obj.x - this.x;
-                    const dy = obj.y - this.y;
-                    const dist = dx*dx + dy*dy;
-                    if (dist < minDist) {
-                        minDist = dist;
-                        nearest = obj;
-                    }
-                }
-            }
-            this.target = nearest;
-        }
-
-        if (this.target) {
-            const dist = this.moveTowards(this.target.x, this.target.y, deltaTime);
-            if (dist < this.attackRange + this.target.radius) {
-                // Attack
-                if (this.attackCooldown <= 0) {
-                    this.target.health -= this.damage;
-                    game.addFloatingText(this.target.x, this.target.y - 20, `-${this.damage}`, 'white');
-                    this.attackCooldown = this.attackRate;
-                    if (this.target.health <= 0) {
-                        this.target.active = false;
-                        // Give resource to player
-                        if (player) {
-                            player.resources[this.target.resourceType] += this.target.resourceAmount;
-                        }
-                        this.target = null;
-                    }
-                }
-            }
+    attack(game) {
+        if (this.armed) {
+            // Shoot
+            const spread = (Math.random() - 0.5) * (1 - this.accuracy) * 0.5;
+            game.addProjectile(this.x, this.y, this.angle + spread, this.name, {
+                damage: this.damage,
+                speed: 0.7,
+                life: 500,
+                color: '#f1c40f'
+            });
         } else {
-            // Follow player if no trees
-            if (player) this.moveTowards(player.x, player.y, deltaTime);
-        }
-    }
-}
-
-export class Bear extends Unit {
-    constructor(x, y) {
-        super(x, y, 'bear');
-        this.health = 200;
-        this.maxHealth = 200;
-        this.color = '#5d4037'; // Brown
-        this.team = 'enemy';
-        this.damage = 25;
-        this.speed = 0.05;
-        this.radius = 25;
-
-        // Loot
-        this.resourceType = 'gold';
-        this.resourceAmount = 50;
-    }
-
-    update(deltaTime, game) {
-        super.update(deltaTime, game);
-        if (!this.active) return;
-
-        const gameObjects = game.gameObjects;
-        const player = game.player;
-
-        // Find nearest Player or Player Unit
-        let minDist = 500 * 500;
-        let nearest = null;
-
-        // Check Player
-        if (player) {
-            const d = (player.x - this.x)**2 + (player.y - this.y)**2;
-            if (d < minDist) {
-                minDist = d;
-                nearest = player;
-            }
-        }
-
-        // Check Units
-        for (const obj of gameObjects) {
-            if (!obj.active) continue;
-            if (obj.team === 'player') {
-                const d = (obj.x - this.x)**2 + (obj.y - this.y)**2;
-                if (d < minDist) {
-                    minDist = d;
-                    nearest = obj;
-                }
-            }
-        }
-
-        this.target = nearest;
-
-        if (this.target) {
-            const dist = this.moveTowards(this.target.x, this.target.y, deltaTime);
-            const targetRadius = this.target.radius || 20;
-
-            if (dist < this.attackRange + targetRadius) {
-                if (this.attackCooldown <= 0) {
-                    // Deal damage
-                    if (this.target === player) {
-                        player.hp -= this.damage;
-                        game.addFloatingText(player.x, player.y - 30, `-${this.damage}`, 'red');
-                    } else {
-                        this.target.health -= this.damage;
-                        game.addFloatingText(this.target.x, this.target.y - 20, `-${this.damage}`, 'white');
-                        if (this.target.health <= 0) {
-                            this.target.active = false;
-                        }
-                    }
-                    this.attackCooldown = this.attackRate;
-                }
-            }
-        }
-    }
-}
-
-export class Horse extends Unit {
-    constructor(x, y) {
-        super(x, y, 'horse');
-        this.health = 100;
-        this.maxHealth = 100;
-        this.color = '#8d6e63'; // Brown/Tan
-        this.team = 'neutral';
-        this.speed = 0.05; // Roam slowly
-        this.radius = 25;
-        this.moveTimer = 0;
-        this.wanderDir = 0;
-    }
-
-    update(deltaTime, game) {
-        // Wander logic
-        this.moveTimer -= deltaTime;
-        if (this.moveTimer <= 0) {
-            this.moveTimer = 2000;
-            this.wanderDir = Math.random() * Math.PI * 2;
-        }
-
-        this.x += Math.cos(this.wanderDir) * this.speed * deltaTime;
-        this.y += Math.sin(this.wanderDir) * this.speed * deltaTime;
-    }
-}
-
-export class Bandit extends Unit {
-    constructor(x, y) {
-        super(x, y, 'bandit');
-        this.health = 80;
-        this.maxHealth = 80;
-        this.color = '#e74c3c'; // Red
-        this.team = 'enemy';
-        this.speed = 0.08;
-        this.attackRate = 2000;
-        this.radius = 20;
-
-        // Loot
-        this.resourceType = 'gold';
-        this.resourceAmount = 40;
-    }
-
-    update(deltaTime, game) {
-        super.update(deltaTime, game);
-        if (!this.active) return;
-
-        const player = game.player;
-
-        // Simple logic: Chase player, shoot if in range
-        if (player) {
-            const dist = Math.sqrt((player.x - this.x)**2 + (player.y - this.y)**2);
-            if (dist < 400) {
-                 // Move towards
-                 if (dist > 150) {
-                     this.moveTowards(player.x, player.y, deltaTime);
-                 }
-                 // Shoot
-                 if (this.attackCooldown <= 0) {
-                     const angle = Math.atan2(player.y - this.y, player.x - this.x);
-                     game.addProjectile(this.x, this.y, angle, 'enemy');
-                     this.attackCooldown = this.attackRate;
-                 }
+            // Melee
+            if (distance(this.x, this.y, this.target.x, this.target.y) < 50) {
+                game.damagePlayer(this.damage, this.name);
             }
         }
     }
 
     draw(ctx) {
         super.draw(ctx);
-        if (this.active) {
+
+        // Draw weapon
+        if (this.armed && this.active) {
             ctx.save();
             ctx.translate(this.x, this.y);
             ctx.rotate(this.angle);
-            ctx.fillStyle = 'black';
-            ctx.fillRect(10, -3, 15, 6);
+            ctx.fillStyle = '#2c3e50';
+            ctx.fillRect(this.radius, -3, 25, 6);
             ctx.restore();
         }
     }
 }
 
-export class Guard extends Unit {
-    constructor(x, y) {
-        super(x, y, 'guard');
-        this.health = 100;
-        this.maxHealth = 100;
-        this.color = '#3498db';
-        this.team = 'player';
-        this.damage = 15;
+// PMC - Strong human enemy
+export class PMC extends Enemy {
+    constructor(x, y, faction = 'usec') {
+        const config = faction === 'usec' ? ENEMY_TYPES.pmc_usec : ENEMY_TYPES.pmc_bear;
+        super(x, y, config);
+        this.faction = faction;
+        this.attackRate = 1200;
+        this.xpValue = 150;
     }
 
-    update(deltaTime, game) {
-        super.update(deltaTime, game);
-        if (!this.active) return;
+    attack(game) {
+        const spread = (Math.random() - 0.5) * (1 - this.accuracy) * 0.3;
+        game.addProjectile(this.x, this.y, this.angle + spread, this.name, {
+            damage: this.damage,
+            speed: 1.0,
+            life: 600,
+            color: this.faction === 'usec' ? '#3498db' : '#e74c3c'
+        });
+    }
 
-        const gameObjects = game.gameObjects;
-        const player = game.player;
+    draw(ctx) {
+        super.draw(ctx);
 
-        // Find nearest enemy (Wolf)
-        let minDist = 400 * 400; // Aggro range
-        let nearest = null;
-        for (const obj of gameObjects) {
-            if (!obj.active) continue;
-            if (obj.type === 'wolf' || obj.type === 'bear') {
-                const dx = obj.x - this.x;
-                const dy = obj.y - this.y;
-                const dist = dx*dx + dy*dy;
-                if (dist < minDist) {
-                    minDist = dist;
-                    nearest = obj;
-                }
-            }
-        }
-        this.target = nearest;
+        // Draw tactical gear
+        if (this.active) {
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            ctx.rotate(this.angle);
 
-        if (this.target) {
-            const dist = this.moveTowards(this.target.x, this.target.y, deltaTime);
-            if (dist < this.attackRange + this.target.radius) {
-                if (this.attackCooldown <= 0) {
-                    this.target.health -= this.damage;
-                    game.addFloatingText(this.target.x, this.target.y - 20, `-${this.damage}`, 'white');
-                    this.attackCooldown = this.attackRate;
-                    if (this.target.health <= 0) {
-                        game.handleObjectDeath(this.target);
-                    }
-                }
-            }
-        } else {
-            // Follow player
-            if (player) {
-                const dist = Math.sqrt((player.x - this.x)**2 + (player.y - this.y)**2);
-                if (dist > 100) { // Keep some distance
-                    this.moveTowards(player.x, player.y, deltaTime);
-                }
-            }
+            // Helmet
+            ctx.fillStyle = this.faction === 'usec' ? '#2980b9' : '#c0392b';
+            ctx.beginPath();
+            ctx.arc(0, 0, this.radius + 3, -Math.PI / 3, Math.PI / 3);
+            ctx.fill();
+
+            // Gun
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(this.radius, -4, 35, 8);
+
+            ctx.restore();
         }
     }
 }
 
-export class Wolf extends Unit {
+// Base Zombie
+export class Zombie extends Enemy {
     constructor(x, y) {
-        super(x, y, 'wolf');
-        this.health = 60;
-        this.maxHealth = 60;
-        this.color = '#2c3e50';
-        this.team = 'enemy';
-        this.damage = 10;
-        this.speed = 0.12;
+        super(x, y, ENEMY_TYPES.zombie);
+        this.attackRate = 1000;
+        this.xpValue = 30;
+    }
 
-        // Loot
-        this.resourceType = 'gold';
-        this.resourceAmount = 20;
+    attack(game) {
+        if (distance(this.x, this.y, this.target.x, this.target.y) < 50) {
+            game.damagePlayer(this.damage, 'Infected');
+        }
+    }
+
+    draw(ctx) {
+        if (!this.active) return;
+
+        ctx.save();
+        ctx.translate(this.x, this.y);
+
+        // Zombie look - tattered
+        const bob = Math.sin(Date.now() / 150) * 0.08;
+        ctx.scale(1 + bob, 1 - bob);
+
+        // Body (greenish)
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Tattered edges
+        ctx.strokeStyle = '#1e5631';
+        ctx.lineWidth = 3;
+        for (let i = 0; i < 5; i++) {
+            const angle = (i / 5) * Math.PI * 2;
+            ctx.beginPath();
+            ctx.moveTo(Math.cos(angle) * this.radius, Math.sin(angle) * this.radius);
+            ctx.lineTo(Math.cos(angle) * (this.radius + 5), Math.sin(angle) * (this.radius + 5));
+            ctx.stroke();
+        }
+
+        // Eyes (glowing)
+        ctx.rotate(this.angle);
+        ctx.fillStyle = '#ff0000';
+        ctx.beginPath();
+        ctx.arc(8, -4, 3, 0, Math.PI * 2);
+        ctx.arc(8, 4, 3, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+
+        // Health bar
+        if (this.health < this.maxHealth) {
+            const hpWidth = 30;
+            const hpPct = this.health / this.maxHealth;
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(this.x - hpWidth / 2 - 1, this.y - this.radius - 11, hpWidth + 2, 6);
+            ctx.fillStyle = '#c41e3a';
+            ctx.fillRect(this.x - hpWidth / 2, this.y - this.radius - 10, hpWidth, 4);
+            ctx.fillStyle = '#27ae60';
+            ctx.fillRect(this.x - hpWidth / 2, this.y - this.radius - 10, hpWidth * hpPct, 4);
+        }
+    }
+}
+
+// Fast Zombie (Runner)
+export class ZombieFast extends Enemy {
+    constructor(x, y) {
+        super(x, y, ENEMY_TYPES.zombie_fast);
+        this.attackRate = 600;
+        this.xpValue = 40;
+    }
+
+    attack(game) {
+        if (distance(this.x, this.y, this.target.x, this.target.y) < 50) {
+            game.damagePlayer(this.damage, 'Runner');
+        }
+    }
+
+    draw(ctx) {
+        if (!this.active) return;
+
+        ctx.save();
+        ctx.translate(this.x, this.y);
+
+        // Fast zombie - leaner
+        const bob = Math.sin(Date.now() / 100) * 0.1;
+        ctx.scale(0.8 + bob, 1.2 - bob);
+
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Speed lines
+        ctx.rotate(this.angle + Math.PI);
+        ctx.strokeStyle = 'rgba(30, 132, 73, 0.5)';
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 3; i++) {
+            ctx.beginPath();
+            ctx.moveTo(this.radius + 5, (i - 1) * 8);
+            ctx.lineTo(this.radius + 15, (i - 1) * 8);
+            ctx.stroke();
+        }
+
+        ctx.restore();
+
+        // Health bar
+        if (this.health < this.maxHealth) {
+            const hpWidth = 25;
+            const hpPct = this.health / this.maxHealth;
+            ctx.fillStyle = '#27ae60';
+            ctx.fillRect(this.x - hpWidth / 2, this.y - this.radius - 10, hpWidth * hpPct, 4);
+        }
+    }
+}
+
+// Tank Zombie (Bloater)
+export class ZombieTank extends Enemy {
+    constructor(x, y) {
+        super(x, y, ENEMY_TYPES.zombie_tank);
+        this.radius = 30;
+        this.attackRate = 2000;
+        this.xpValue = 100;
+    }
+
+    attack(game) {
+        if (distance(this.x, this.y, this.target.x, this.target.y) < 80) {
+            game.damagePlayer(this.damage, 'Bloater');
+            // Knockback
+            const angle = Math.atan2(this.target.y - this.y, this.target.x - this.x);
+            game.player.x += Math.cos(angle) * 50;
+            game.player.y += Math.sin(angle) * 50;
+        }
+    }
+
+    draw(ctx) {
+        if (!this.active) return;
+
+        ctx.save();
+        ctx.translate(this.x, this.y);
+
+        // Fat zombie
+        const bob = Math.sin(Date.now() / 300) * 0.03;
+        ctx.scale(1.2 + bob, 1 - bob);
+
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Gross details
+        ctx.fillStyle = '#0d3d1e';
+        ctx.beginPath();
+        ctx.arc(-8, -5, 8, 0, Math.PI * 2);
+        ctx.arc(5, 8, 6, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Eyes
+        ctx.rotate(this.angle);
+        ctx.fillStyle = '#ff6600';
+        ctx.beginPath();
+        ctx.arc(this.radius / 2, -6, 5, 0, Math.PI * 2);
+        ctx.arc(this.radius / 2, 6, 5, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+
+        // Health bar
+        if (this.health < this.maxHealth) {
+            const hpWidth = 50;
+            const hpPct = this.health / this.maxHealth;
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(this.x - hpWidth / 2 - 1, this.y - this.radius - 11, hpWidth + 2, 8);
+            ctx.fillStyle = '#c41e3a';
+            ctx.fillRect(this.x - hpWidth / 2, this.y - this.radius - 10, hpWidth, 6);
+            ctx.fillStyle = '#27ae60';
+            ctx.fillRect(this.x - hpWidth / 2, this.y - this.radius - 10, hpWidth * hpPct, 6);
+        }
+
+        // Name
+        ctx.fillStyle = '#ff6600';
+        ctx.font = 'bold 12px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('BLOATER', this.x, this.y - this.radius - 20);
+    }
+}
+
+// Spitter Zombie
+export class ZombieSpitter extends Enemy {
+    constructor(x, y) {
+        super(x, y, ENEMY_TYPES.zombie_spitter);
+        this.attackRate = 2500;
+        this.xpValue = 60;
+    }
+
+    attack(game) {
+        // Ranged acid attack
+        const spread = (Math.random() - 0.5) * 0.3;
+        game.addProjectile(this.x, this.y, this.angle + spread, 'Spitter', {
+            damage: this.damage,
+            speed: 0.5,
+            life: 400,
+            color: '#27ae60'
+        });
+    }
+
+    draw(ctx) {
+        if (!this.active) return;
+
+        ctx.save();
+        ctx.translate(this.x, this.y);
+
+        const bob = Math.sin(Date.now() / 200) * 0.06;
+        ctx.scale(1 + bob, 1 - bob);
+
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Dripping effect
+        ctx.fillStyle = '#1abc9c';
+        ctx.rotate(this.angle);
+        ctx.beginPath();
+        ctx.moveTo(this.radius, 0);
+        ctx.lineTo(this.radius + 10, -3);
+        ctx.lineTo(this.radius + 15, 0);
+        ctx.lineTo(this.radius + 10, 3);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.restore();
+
+        // Health bar
+        if (this.health < this.maxHealth) {
+            const hpWidth = 30;
+            const hpPct = this.health / this.maxHealth;
+            ctx.fillStyle = '#1abc9c';
+            ctx.fillRect(this.x - hpWidth / 2, this.y - this.radius - 10, hpWidth * hpPct, 4);
+        }
+    }
+}
+
+// Boss
+export class Boss extends Enemy {
+    constructor(x, y, bossType = 'killa') {
+        super(x, y, ENEMY_TYPES[bossType]);
+        this.radius = 25;
+        this.attackRate = 800;
+        this.xpValue = 500;
+        this.phase = 1;
     }
 
     update(deltaTime, game) {
         super.update(deltaTime, game);
+
+        // Phase change at 50% health
+        if (this.health <= this.maxHealth / 2 && this.phase === 1) {
+            this.phase = 2;
+            this.speed *= 1.3;
+            this.attackRate *= 0.7;
+        }
+    }
+
+    attack(game) {
+        // Burst fire
+        for (let i = 0; i < 3; i++) {
+            setTimeout(() => {
+                if (!this.active) return;
+                const spread = (Math.random() - 0.5) * 0.2;
+                game.addProjectile(this.x, this.y, this.angle + spread, this.name, {
+                    damage: this.damage,
+                    speed: 1.2,
+                    life: 600,
+                    color: '#9b59b6'
+                });
+            }, i * 100);
+        }
+    }
+
+    draw(ctx) {
         if (!this.active) return;
 
-        const gameObjects = game.gameObjects;
-        const player = game.player;
+        ctx.save();
+        ctx.translate(this.x, this.y);
 
-        // Find nearest Player or Player Unit
-        let minDist = 500 * 500;
-        let nearest = null;
+        // Imposing figure
+        const pulse = Math.sin(Date.now() / 200) * 0.05;
+        ctx.scale(1 + pulse, 1 + pulse);
 
-        // Check Player
-        if (player) {
-            const d = (player.x - this.x)**2 + (player.y - this.y)**2;
-            if (d < minDist) {
-                minDist = d;
-                nearest = player;
-            }
-        }
+        // Aura
+        ctx.fillStyle = 'rgba(155, 89, 182, 0.3)';
+        ctx.beginPath();
+        ctx.arc(0, 0, this.radius + 10, 0, Math.PI * 2);
+        ctx.fill();
 
-        // Check Units (optimize later, checking all is slow but fine for MVP)
-        for (const obj of gameObjects) {
-            if (!obj.active) continue;
-            if (obj.team === 'player') {
-                const d = (obj.x - this.x)**2 + (obj.y - this.y)**2;
-                if (d < minDist) {
-                    minDist = d;
-                    nearest = obj;
-                }
-            }
-        }
+        // Body
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#6c3483';
+        ctx.lineWidth = 4;
+        ctx.stroke();
 
-        this.target = nearest;
+        // Helmet
+        ctx.fillStyle = '#1a1a1a';
+        ctx.beginPath();
+        ctx.arc(0, 0, this.radius - 5, -Math.PI / 2, Math.PI / 2);
+        ctx.fill();
 
-        if (this.target) {
-            const dist = this.moveTowards(this.target.x, this.target.y, deltaTime);
-            // Player doesn't have radius property exposed maybe? It does (20).
-            const targetRadius = this.target.radius || 20;
+        // Gun
+        ctx.rotate(this.angle);
+        ctx.fillStyle = '#1a1a1a';
+        ctx.fillRect(this.radius, -5, 50, 10);
 
-            if (dist < this.attackRange + targetRadius) {
-                if (this.attackCooldown <= 0) {
-                    // Deal damage
-                    if (this.target === player) {
-                        player.hp -= this.damage;
-                        game.addFloatingText(player.x, player.y - 30, `-${this.damage}`, 'red');
-                    } else {
-                        this.target.health -= this.damage;
-                        game.addFloatingText(this.target.x, this.target.y - 20, `-${this.damage}`, 'white');
-                        if (this.target.health <= 0) {
-                            this.target.active = false;
-                        }
-                    }
-                    this.attackCooldown = this.attackRate;
-                }
-            }
-        }
+        ctx.restore();
+
+        // Health bar (bigger)
+        const hpWidth = 60;
+        const hpPct = this.health / this.maxHealth;
+        ctx.fillStyle = '#1a1a1a';
+        ctx.fillRect(this.x - hpWidth / 2 - 1, this.y - this.radius - 16, hpWidth + 2, 10);
+        ctx.fillStyle = '#c41e3a';
+        ctx.fillRect(this.x - hpWidth / 2, this.y - this.radius - 15, hpWidth, 8);
+        ctx.fillStyle = this.phase === 1 ? '#9b59b6' : '#e74c3c';
+        ctx.fillRect(this.x - hpWidth / 2, this.y - this.radius - 15, hpWidth * hpPct, 8);
+
+        // Boss name
+        ctx.fillStyle = '#9b59b6';
+        ctx.font = 'bold 14px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('KILLA', this.x, this.y - this.radius - 25);
     }
 }

@@ -1,87 +1,98 @@
+import { WEAPONS } from './data.js';
+
 export class Player {
     constructor(x, y) {
         this.x = x;
         this.y = y;
-        this.radius = 20; // Size of the player
-        this.speed = 0.2; // Pixels per millisecond
+        this.radius = 20;
+        this.speed = 0.18;
 
-        // Resources
-        this.resources = {
-            wood: 0,
-            stone: 0,
-            food: 0,
-            gold: 0
-        };
-
-        // Stash (Bank)
-        this.bank = {
-            wood: 0,
-            stone: 0,
-            food: 0,
-            gold: 0
-        };
+        // State
+        this.alive = true;
+        this.angle = 0;
 
         // Stats
         this.hp = 100;
         this.maxHp = 100;
+        this.energy = 100;
+        this.hydration = 100;
         this.level = 1;
         this.xp = 0;
-        this.nextLevelXp = 100;
+        this.nextLevelXp = 1000;
 
-        this.angle = 0; // Facing direction
+        // Equipment
+        this.armor = null;
+        this.helmet = null;
+
+        // Weapons
+        this.weapons = [
+            { ...WEAPONS.pm },
+            { ...WEAPONS.knife }
+        ];
+        this.weaponIndex = 0;
+        this.currentMag = this.weapons[0].magSize;
+        this.reserveAmmo = { '9mm': 32, '5.45': 0, '7.62': 0, '12g': 0 };
+
+        // Inventory
+        this.backpack = [];
+        this.backpackSize = 20;
+        this.currentWeight = 0;
+        this.maxWeight = 50;
 
         // Combat
         this.attackCooldown = 0;
-        this.attackSpeed = 500; // ms
-        this.damage = 10;
+        this.reloading = false;
+        this.reloadTimer = 0;
         this.weaponAngle = 0;
         this.isAttacking = false;
+        this.justAttacked = false;
 
-        this.weapons = [
-            { name: 'Sword', type: 'melee', damage: 10, range: 80, rate: 500, color: '#95a5a6' },
-            { name: 'Pistol', type: 'gun', damage: 15, range: 400, rate: 400, speed: 0.8, color: '#2c3e50', length: 30 },
-            { name: 'AK-47', type: 'gun', damage: 8, range: 600, rate: 100, speed: 1.0, color: '#8e44ad', length: 45 },
-            { name: 'Shotgun', type: 'gun', damage: 8, range: 300, rate: 800, speed: 0.7, count: 5, spread: 0.3, color: '#c0392b', length: 35 },
-            { name: 'Sniper', type: 'gun', damage: 50, range: 1000, rate: 1500, speed: 2.0, color: '#27ae60', length: 60 }
-        ];
-        this.weaponIndex = 0;
+        // Cooldowns
         this.switchCooldown = 0;
-        this.mountType = null;
+        this.interactCooldown = 0;
+        this.medkitCooldown = 0;
     }
 
     get currentWeapon() {
         return this.weapons[this.weaponIndex];
     }
 
-    update(deltaTime, input, canAttack = true) {
-        // Switch Weapon
+    update(deltaTime, input) {
+        // Update cooldowns
+        if (this.attackCooldown > 0) this.attackCooldown -= deltaTime;
         if (this.switchCooldown > 0) this.switchCooldown -= deltaTime;
-        if (input.isKeyDown('KeyQ') && this.switchCooldown <= 0) {
+        if (this.interactCooldown > 0) this.interactCooldown -= deltaTime;
+        if (this.medkitCooldown > 0) this.medkitCooldown -= deltaTime;
+
+        // Reloading
+        if (this.reloading) {
+            this.reloadTimer -= deltaTime;
+            if (this.reloadTimer <= 0) {
+                this.finishReload();
+            }
+        }
+
+        // Weapon switch
+        if (input.isKeyDown('KeyQ') && this.switchCooldown <= 0 && !this.reloading) {
             this.weaponIndex = (this.weaponIndex + 1) % this.weapons.length;
             this.switchCooldown = 300;
+            this.currentMag = this.weapons[this.weaponIndex].magSize || 0;
         }
 
-        // Update Stats based on weapon
-        this.damage = this.currentWeapon.damage;
-        this.attackSpeed = this.currentWeapon.rate;
-
-        // Attack Cooldown
-        if (this.attackCooldown > 0) {
-            this.attackCooldown -= deltaTime;
-        }
-
-        // Attack Input
-        if (canAttack && input.mouse.down && this.attackCooldown <= 0) {
-            this.startAttack();
-        }
-
-        // Animate Attack
-        if (this.isAttacking) {
-            this.weaponAngle += 0.2 * deltaTime; // Swing speed
-            if (this.weaponAngle > Math.PI / 2) {
-                this.isAttacking = false;
-                this.weaponAngle = 0;
+        // Number key weapon switch
+        for (let i = 1; i <= 2; i++) {
+            if (input.isKeyDown(`Digit${i}`) && this.switchCooldown <= 0 && !this.reloading) {
+                if (this.weapons[i - 1]) {
+                    this.weaponIndex = i - 1;
+                    this.switchCooldown = 300;
+                    this.currentMag = this.weapons[this.weaponIndex].magSize || 0;
+                }
             }
+        }
+
+        // Attack
+        if (input.mouse.down && this.attackCooldown <= 0 && !this.reloading) {
+            this.tryAttack();
         }
 
         // Movement
@@ -93,33 +104,92 @@ export class Player {
         if (input.isKeyDown('KeyA')) dx -= 1;
         if (input.isKeyDown('KeyD')) dx += 1;
 
-        // Normalize vector
+        // Sprint
+        let currentSpeed = this.speed;
+        if (input.isKeyDown('ShiftLeft') && this.energy > 0) {
+            currentSpeed *= 1.5;
+            this.energy = Math.max(0, this.energy - 0.05);
+        }
+
+        // Weight penalty
+        const weightRatio = this.currentWeight / this.maxWeight;
+        if (weightRatio > 0.8) {
+            currentSpeed *= 0.7;
+        } else if (weightRatio > 0.5) {
+            currentSpeed *= 0.85;
+        }
+
+        // Armor penalty
+        if (this.armor && this.armor.speedPenalty) {
+            currentSpeed *= (1 - this.armor.speedPenalty);
+        }
+
         if (dx !== 0 || dy !== 0) {
             const length = Math.sqrt(dx * dx + dy * dy);
             dx /= length;
             dy /= length;
 
-            this.x += dx * this.speed * deltaTime;
-            this.y += dy * this.speed * deltaTime;
+            this.x += dx * currentSpeed * deltaTime;
+            this.y += dy * currentSpeed * deltaTime;
         }
 
-        // Calculate facing angle based on mouse position relative to screen center (since camera centers on player)
-        // Camera centers player at (screenWidth/2, screenHeight/2)
+        // Facing angle (mouse position)
         const screenCenterX = window.innerWidth / 2;
         const screenCenterY = window.innerHeight / 2;
+        this.angle = Math.atan2(input.mouse.y - screenCenterY, input.mouse.x - screenCenterX);
 
-        const mouseX = input.mouse.x;
-        const mouseY = input.mouse.y;
-
-        this.angle = Math.atan2(mouseY - screenCenterY, mouseX - screenCenterX);
+        // Attack animation
+        if (this.isAttacking) {
+            this.weaponAngle += 0.2 * deltaTime;
+            if (this.weaponAngle > Math.PI / 2) {
+                this.isAttacking = false;
+                this.weaponAngle = 0;
+            }
+        }
     }
 
-    startAttack() {
-        this.isAttacking = true;
-        this.justAttacked = true; // Signal to Game
-        this.attackCooldown = this.attackSpeed;
-        this.weaponAngle = -Math.PI / 4; // Start swing back
-        return true; // Did attack
+    tryAttack() {
+        const weapon = this.currentWeapon;
+
+        if (weapon.type === 'melee') {
+            this.isAttacking = true;
+            this.justAttacked = true;
+            this.attackCooldown = weapon.attackRate;
+            this.weaponAngle = -Math.PI / 4;
+        } else {
+            // Gun
+            if (this.currentMag > 0) {
+                this.currentMag--;
+                this.justAttacked = true;
+                this.attackCooldown = weapon.fireRate;
+            } else {
+                // Auto reload
+                this.reload();
+            }
+        }
+    }
+
+    reload() {
+        const weapon = this.currentWeapon;
+        if (!weapon.magSize || this.reloading) return;
+        if (this.currentMag >= weapon.magSize) return;
+
+        const caliber = weapon.caliber;
+        if (!this.reserveAmmo[caliber] || this.reserveAmmo[caliber] <= 0) return;
+
+        this.reloading = true;
+        this.reloadTimer = weapon.reloadTime;
+    }
+
+    finishReload() {
+        const weapon = this.currentWeapon;
+        const caliber = weapon.caliber;
+        const needed = weapon.magSize - this.currentMag;
+        const available = Math.min(needed, this.reserveAmmo[caliber]);
+
+        this.currentMag += available;
+        this.reserveAmmo[caliber] -= available;
+        this.reloading = false;
     }
 
     draw(ctx) {
@@ -127,74 +197,87 @@ export class Player {
         ctx.translate(this.x, this.y);
         ctx.rotate(this.angle);
 
-        // Draw Mount if exists
-        if (this.mountType === 'horse') {
-            ctx.fillStyle = '#8d6e63';
-            ctx.beginPath();
-            ctx.ellipse(-10, 0, 35, 15, 0, 0, Math.PI*2);
-            ctx.fill();
-            ctx.beginPath();
-            ctx.arc(15, 0, 10, 0, Math.PI*2);
-            ctx.fill();
-        }
-
-        // Draw Player Body (Simple Circle for now, maybe add "hands")
-        ctx.fillStyle = '#f1c40f'; // Yellowish "skin" tone
-        ctx.strokeStyle = '#2c3e50';
+        // Draw body (tactical look)
+        ctx.fillStyle = '#2c3e50';
+        ctx.strokeStyle = '#1a252f';
         ctx.lineWidth = 3;
 
+        // Body
         ctx.beginPath();
         ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
 
-        // Draw "Hands" holding a weapon/tool
-        ctx.fillStyle = '#e67e22'; // Hands
-        // Right hand (weapon side)
+        // Vest/Armor indicator
+        if (this.armor) {
+            ctx.fillStyle = '#34495e';
+            ctx.beginPath();
+            ctx.arc(0, 0, this.radius - 5, -Math.PI / 2, Math.PI / 2);
+            ctx.fill();
+        }
+
+        // Hands
+        ctx.fillStyle = '#e8d4b8';
         ctx.beginPath();
-        ctx.arc(this.radius, 10, 8, 0, Math.PI * 2);
+        ctx.arc(this.radius, 8, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(this.radius, -8, 6, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
 
-        // Left hand
-        ctx.beginPath();
-        ctx.arc(this.radius, -10, 8, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-
-        // Draw Weapon attached to right hand
+        // Weapon
         ctx.save();
-        ctx.translate(this.radius, 10); // Pivot at hand
+        ctx.translate(this.radius, 8);
         ctx.rotate(this.weaponAngle);
 
         const weapon = this.currentWeapon;
-        if (weapon.type === 'gun') {
-             // Draw Gun
-             ctx.fillStyle = '#2c3e50'; // Handle
-             ctx.fillRect(0, -5, 20, 10);
-             ctx.fillStyle = weapon.color; // Barrel/Body
-             ctx.fillRect(10, -5, weapon.length, 6);
+        if (weapon.type === 'melee') {
+            // Knife
+            ctx.fillStyle = '#95a5a6';
+            ctx.fillRect(5, -3, 25, 6);
+            ctx.fillStyle = '#7f8c8d';
+            ctx.fillRect(0, -4, 8, 8);
         } else {
-             // Draw Sword
-             ctx.fillStyle = weapon.color;
-             ctx.fillRect(0, -5, 35, 10);
+            // Gun
+            const length = weapon.length || 30;
+            ctx.fillStyle = '#2c3e50';
+            ctx.fillRect(0, -4, 15, 8); // Handle
+            ctx.fillStyle = weapon.color || '#34495e';
+            ctx.fillRect(10, -3, length, 6); // Barrel
+
+            // Muzzle
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(10 + length - 5, -4, 5, 8);
         }
         ctx.restore();
 
         ctx.restore();
 
-        // Draw Name/Level above
+        // Name and level
         ctx.fillStyle = 'white';
-        ctx.font = '12px Arial';
+        ctx.font = 'bold 12px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText(`Lvl ${this.level}`, this.x, this.y - this.radius - 10);
+        ctx.fillText(`PMC Lv.${this.level}`, this.x, this.y - this.radius - 25);
 
-        // Health Bar
+        // Health bar
         const hpWidth = 40;
         const hpHeight = 5;
-        ctx.fillStyle = 'red';
-        ctx.fillRect(this.x - hpWidth/2, this.y - this.radius - 20, hpWidth, hpHeight);
-        ctx.fillStyle = 'green';
-        ctx.fillRect(this.x - hpWidth/2, this.y - this.radius - 20, hpWidth * (this.hp / this.maxHp), hpHeight);
+        ctx.fillStyle = '#1a1a1a';
+        ctx.fillRect(this.x - hpWidth / 2 - 1, this.y - this.radius - 21, hpWidth + 2, hpHeight + 2);
+        ctx.fillStyle = '#c41e3a';
+        ctx.fillRect(this.x - hpWidth / 2, this.y - this.radius - 20, hpWidth, hpHeight);
+        ctx.fillStyle = '#2ecc71';
+        ctx.fillRect(this.x - hpWidth / 2, this.y - this.radius - 20, hpWidth * (this.hp / this.maxHp), hpHeight);
+
+        // Reload indicator
+        if (this.reloading) {
+            const progress = 1 - (this.reloadTimer / this.currentWeapon.reloadTime);
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            ctx.fillRect(this.x - 20, this.y + this.radius + 5, 40, 6);
+            ctx.fillStyle = '#f1c40f';
+            ctx.fillRect(this.x - 20, this.y + this.radius + 5, 40 * progress, 6);
+        }
     }
 }

@@ -3,13 +3,14 @@ export class Projectile {
         this.x = x;
         this.y = y;
         this.angle = angle;
-        this.owner = owner; // 'player' or 'enemy'
+        this.owner = owner;
         this.speed = stats.speed || 0.8;
         this.damage = stats.damage || 20;
         this.active = true;
         this.life = stats.life || 2000;
-        this.radius = 5;
-        this.color = stats.color || 'black';
+        this.radius = 4;
+        this.color = stats.color || '#f1c40f';
+        this.trail = [];
     }
 
     update(deltaTime) {
@@ -19,28 +20,47 @@ export class Projectile {
             return;
         }
 
+        // Store trail position
+        this.trail.push({ x: this.x, y: this.y });
+        if (this.trail.length > 5) {
+            this.trail.shift();
+        }
+
         this.x += Math.cos(this.angle) * this.speed * deltaTime;
         this.y += Math.sin(this.angle) * this.speed * deltaTime;
     }
 
     draw(ctx) {
         if (!this.active) return;
-        ctx.save();
-        ctx.translate(this.x, this.y);
-        ctx.rotate(this.angle);
 
-        ctx.fillStyle = 'black';
+        ctx.save();
+
+        // Draw trail
+        if (this.trail.length > 1) {
+            ctx.strokeStyle = this.color;
+            ctx.lineWidth = 2;
+            ctx.globalAlpha = 0.3;
+            ctx.beginPath();
+            ctx.moveTo(this.trail[0].x, this.trail[0].y);
+            for (let i = 1; i < this.trail.length; i++) {
+                ctx.lineTo(this.trail[i].x, this.trail[i].y);
+            }
+            ctx.lineTo(this.x, this.y);
+            ctx.stroke();
+        }
+
+        // Draw bullet
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = this.color;
         ctx.beginPath();
-        ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
         ctx.fill();
 
-        // Trail effect (simple line)
-        ctx.strokeStyle = 'rgba(0,0,0,0.3)';
-        ctx.lineWidth = 2;
+        // Glow effect
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
         ctx.beginPath();
-        ctx.moveTo(-10, 0);
-        ctx.lineTo(0, 0);
-        ctx.stroke();
+        ctx.arc(this.x, this.y, this.radius * 0.5, 0, Math.PI * 2);
+        ctx.fill();
 
         ctx.restore();
     }

@@ -1,14 +1,19 @@
 export class InputHandler {
     constructor() {
-        this.keys = {};
+        this.keys = new Set();
         this.mouse = { x: 0, y: 0, down: false, rightDown: false };
 
         window.addEventListener('keydown', (e) => {
-            this.keys[e.code] = true;
+            this.keys.add(e.code);
+
+            // Prevent default for game keys
+            if (['Tab', 'KeyE', 'KeyR', 'KeyF', 'Space'].includes(e.code)) {
+                e.preventDefault();
+            }
         });
 
         window.addEventListener('keyup', (e) => {
-            this.keys[e.code] = false;
+            this.keys.delete(e.code);
         });
 
         window.addEventListener('mousemove', (e) => {
@@ -28,9 +33,24 @@ export class InputHandler {
 
         // Prevent context menu
         window.addEventListener('contextmenu', e => e.preventDefault());
+
+        // Handle focus loss
+        window.addEventListener('blur', () => {
+            this.keys.clear();
+            this.mouse.down = false;
+            this.mouse.rightDown = false;
+        });
     }
 
     isKeyDown(key) {
-        return !!this.keys[key];
+        return this.keys.has(key);
+    }
+
+    isKeyPressed(key) {
+        if (this.keys.has(key)) {
+            this.keys.delete(key);
+            return true;
+        }
+        return false;
     }
 }

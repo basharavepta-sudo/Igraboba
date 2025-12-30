@@ -1,40 +1,258 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Glor.io Clone</title>
+    <title>Escape from Tarkov 2D</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div id="ui-layer">
-        <div class="resource-bar">
-            <div class="resource">🌲 Wood: <span id="wood-count">0</span></div>
-            <div class="resource">🪨 Stone: <span id="stone-count">0</span></div>
-            <div class="resource">🍎 Food: <span id="food-count">0</span></div>
-            <div class="resource">💰 Gold: <span id="gold-count">0</span></div>
-            <div class="resource">⭐ Level: <span id="level-count">1</span></div>
-            <div class="resource">🔫 Weapon: <span id="weapon-name">Sword</span></div>
+        <!-- Top Status Bar -->
+        <div class="status-bar">
+            <div class="status-group">
+                <div class="status-item health">
+                    <div class="status-icon">HP</div>
+                    <div class="status-bar-container">
+                        <div id="hp-bar" class="bar-fill hp-fill"></div>
+                        <span id="hp-text">100/100</span>
+                    </div>
+                </div>
+                <div class="status-item energy">
+                    <div class="status-icon">EN</div>
+                    <div class="status-bar-container">
+                        <div id="energy-bar" class="bar-fill energy-fill"></div>
+                        <span id="energy-text">100/100</span>
+                    </div>
+                </div>
+                <div class="status-item hydration">
+                    <div class="status-icon">HY</div>
+                    <div class="status-bar-container">
+                        <div id="hydration-bar" class="bar-fill hydration-fill"></div>
+                        <span id="hydration-text">100/100</span>
+                    </div>
+                </div>
+            </div>
+            <div class="location-info">
+                <span id="location-name">HIDEOUT</span>
+                <span id="raid-timer" style="display:none;">45:00</span>
+            </div>
+            <div class="status-group">
+                <div class="status-item armor">
+                    <div class="status-icon">ARM</div>
+                    <span id="armor-value">0</span>
+                </div>
+                <div class="status-item weight">
+                    <div class="status-icon">KG</div>
+                    <span id="weight-value">0/50</span>
+                </div>
+            </div>
         </div>
+
+        <!-- Current Weapon Display -->
+        <div class="weapon-display">
+            <div class="weapon-icon" id="weapon-icon"></div>
+            <div class="weapon-info">
+                <span id="weapon-name">PM Pistol</span>
+                <span id="ammo-count">8/8</span>
+            </div>
+        </div>
+
+        <!-- Mini Map -->
+        <div class="mini-map">
+            <canvas id="miniMapCanvas" width="200" height="200"></canvas>
+            <div class="compass">
+                <span>N</span>
+            </div>
+        </div>
+
+        <!-- Hotbar -->
+        <div class="hotbar">
+            <div class="hotbar-slot" data-slot="1"><span class="key">1</span><div class="slot-content" id="slot1"></div></div>
+            <div class="hotbar-slot" data-slot="2"><span class="key">2</span><div class="slot-content" id="slot2"></div></div>
+            <div class="hotbar-slot" data-slot="3"><span class="key">3</span><div class="slot-content" id="slot3"></div></div>
+            <div class="hotbar-slot" data-slot="4"><span class="key">4</span><div class="slot-content" id="slot4"></div></div>
+            <div class="hotbar-slot" data-slot="5"><span class="key">5</span><div class="slot-content" id="slot5"></div></div>
+            <div class="hotbar-slot" data-slot="6"><span class="key">6</span><div class="slot-content" id="slot6"></div></div>
+        </div>
+
+        <!-- Quick Info -->
+        <div class="quick-info">
+            <span id="interaction-hint"></span>
+        </div>
+
+        <!-- Controls Help -->
         <div id="controls-help">
-            WASD: Move | Click: Attack | Q: Weapon | F: Interact (Mount/Stash/Portal) | 1-4, 7: Build | 5-6: Units
+            WASD: Move | Mouse: Aim | LMB: Shoot | R: Reload | Q: Switch Weapon | TAB: Inventory | F: Interact | E: Use Medkit
         </div>
-        <div id="leaderboard">
-            <h3>Leaderboard</h3>
-            <ul id="leaderboard-list">
-                <!-- Items here -->
-            </ul>
+
+        <!-- Kill Feed -->
+        <div id="kill-feed"></div>
+
+        <!-- Inventory Panel -->
+        <div id="inventory-panel" class="panel hidden">
+            <div class="panel-header">
+                <h2>INVENTORY</h2>
+                <button class="close-btn" onclick="game.toggleInventory()">&times;</button>
+            </div>
+            <div class="inventory-container">
+                <div class="equipment-section">
+                    <h3>Equipment</h3>
+                    <div class="equipment-slots">
+                        <div class="equip-slot" data-type="weapon1">Primary</div>
+                        <div class="equip-slot" data-type="weapon2">Secondary</div>
+                        <div class="equip-slot" data-type="armor">Armor</div>
+                        <div class="equip-slot" data-type="helmet">Helmet</div>
+                        <div class="equip-slot" data-type="backpack">Backpack</div>
+                        <div class="equip-slot" data-type="rig">Rig</div>
+                    </div>
+                </div>
+                <div class="backpack-section">
+                    <h3>Backpack <span id="backpack-space">0/20</span></h3>
+                    <div id="backpack-grid" class="inventory-grid"></div>
+                </div>
+                <div class="stash-section">
+                    <h3>Stash <span id="stash-space">0/100</span></h3>
+                    <div id="stash-grid" class="inventory-grid large"></div>
+                </div>
+            </div>
         </div>
+
+        <!-- Map Selection Panel -->
+        <div id="map-selection" class="panel hidden">
+            <div class="panel-header">
+                <h2>SELECT MAP</h2>
+                <button class="close-btn" onclick="game.toggleMapSelection()">&times;</button>
+            </div>
+            <div class="map-list">
+                <div class="map-card" data-map="customs">
+                    <div class="map-preview customs"></div>
+                    <div class="map-info">
+                        <h3>CUSTOMS</h3>
+                        <p>Medium difficulty. Open areas with industrial buildings.</p>
+                        <div class="map-stats">
+                            <span>Scavs: Medium</span>
+                            <span>PMC: Low</span>
+                            <span>Zombies: Few</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="map-card" data-map="factory">
+                    <div class="map-preview factory"></div>
+                    <div class="map-info">
+                        <h3>FACTORY</h3>
+                        <p>High difficulty. Close quarters combat.</p>
+                        <div class="map-stats">
+                            <span>Scavs: High</span>
+                            <span>PMC: Medium</span>
+                            <span>Zombies: Many</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="map-card" data-map="woods">
+                    <div class="map-preview woods"></div>
+                    <div class="map-info">
+                        <h3>WOODS</h3>
+                        <p>Low difficulty. Large open forest area.</p>
+                        <div class="map-stats">
+                            <span>Scavs: Low</span>
+                            <span>PMC: Low</span>
+                            <span>Zombies: Few</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="map-card" data-map="interchange">
+                    <div class="map-preview interchange"></div>
+                    <div class="map-info">
+                        <h3>INTERCHANGE</h3>
+                        <p>Hard difficulty. Massive mall with valuable loot.</p>
+                        <div class="map-stats">
+                            <span>Scavs: High</span>
+                            <span>PMC: High</span>
+                            <span>Zombies: Medium</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Craft Panel -->
+        <div id="craft-panel" class="panel hidden">
+            <div class="panel-header">
+                <h2>HIDEOUT CRAFTING</h2>
+                <button class="close-btn" onclick="game.toggleCraftPanel()">&times;</button>
+            </div>
+            <div class="craft-tabs">
+                <button class="craft-tab active" data-tab="workbench">Workbench</button>
+                <button class="craft-tab" data-tab="medstation">Med Station</button>
+                <button class="craft-tab" data-tab="nutrition">Nutrition</button>
+            </div>
+            <div class="craft-content" id="craft-content"></div>
+            <div class="resources-bar">
+                <span><i class="res-icon wood"></i> Wood: <b id="res-wood">0</b></span>
+                <span><i class="res-icon metal"></i> Metal: <b id="res-metal">0</b></span>
+                <span><i class="res-icon components"></i> Parts: <b id="res-parts">0</b></span>
+                <span><i class="res-icon medical"></i> Medical: <b id="res-medical">0</b></span>
+                <span><i class="res-icon food-res"></i> Food: <b id="res-food">0</b></span>
+                <span><i class="res-icon roubles"></i> Roubles: <b id="res-roubles">0</b></span>
+            </div>
+        </div>
+
+        <!-- Loot Panel -->
+        <div id="loot-panel" class="panel hidden">
+            <div class="panel-header">
+                <h2>LOOT</h2>
+                <button class="close-btn" onclick="game.closeLootPanel()">&times;</button>
+            </div>
+            <div class="loot-container">
+                <div class="loot-items" id="loot-items"></div>
+                <button class="take-all-btn" onclick="game.takeAllLoot()">TAKE ALL</button>
+            </div>
+        </div>
+
+        <!-- Start Screen -->
         <div id="start-screen" class="overlay">
-            <h1>Glor.io Clone</h1>
-            <p>Gather resources, build a base, and survive!</p>
-            <button id="start-btn">Play</button>
+            <div class="title-container">
+                <h1>ESCAPE FROM TARKOV</h1>
+                <h2>2D BROWSER EDITION</h2>
+            </div>
+            <div class="menu-buttons">
+                <button id="start-btn" class="menu-btn primary">START GAME</button>
+            </div>
+            <div class="game-info">
+                <p>Survive raids, gather loot, build your hideout</p>
+                <p>Beware of Scavs, PMCs, and the infected...</p>
+            </div>
         </div>
-        <div id="game-over-screen" class="overlay" style="display: none;">
-            <h1>Game Over</h1>
-            <button id="restart-btn">Restart</button>
+
+        <!-- Death Screen -->
+        <div id="death-screen" class="overlay" style="display: none;">
+            <div class="death-info">
+                <h1>YOU DIED</h1>
+                <div class="death-stats">
+                    <p>Killed by: <span id="killed-by">Unknown</span></p>
+                    <p>Time survived: <span id="time-survived">00:00</span></p>
+                    <p>Loot lost: <span id="loot-lost">0 items</span></p>
+                </div>
+            </div>
+            <button id="respawn-btn" class="menu-btn">RETURN TO HIDEOUT</button>
+        </div>
+
+        <!-- Extract Screen -->
+        <div id="extract-screen" class="overlay" style="display: none;">
+            <div class="extract-info">
+                <h1>EXTRACTED</h1>
+                <div class="extract-stats">
+                    <p>Raid time: <span id="raid-time">00:00</span></p>
+                    <p>Kills: <span id="raid-kills">0</span></p>
+                    <p>Experience: <span id="raid-xp">+0</span></p>
+                </div>
+                <div class="loot-summary" id="loot-summary"></div>
+            </div>
+            <button id="continue-btn" class="menu-btn primary">CONTINUE</button>
         </div>
     </div>
+
     <canvas id="gameCanvas"></canvas>
     <script type="module" src="src/main.js"></script>
 </body>

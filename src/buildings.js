@@ -4,60 +4,18 @@ export class Building extends GameObject {
     constructor(x, y, type) {
         super(x, y, type);
         this.isBuilding = true;
+        this.solid = true;
     }
 }
 
 export class Wall extends Building {
     constructor(x, y) {
         super(x, y, 'wall');
-        this.width = 40;
-        this.height = 40;
-        this.radius = 20; // For collision
-        this.health = 200;
-        this.maxHealth = 200;
-        this.cost = { wood: 10, stone: 0, food: 0, gold: 0 };
-    }
-
-    draw(ctx) {
-        if (!this.active) return;
-        ctx.save();
-        ctx.translate(this.x, this.y);
-
-        ctx.fillStyle = '#8B4513';
-        ctx.fillRect(-this.width/2, -this.height/2, this.width, this.height);
-
-        // Wood texture lines
-        ctx.strokeStyle = '#5c2e0b';
-        ctx.beginPath();
-        ctx.moveTo(-this.width/2, 0);
-        ctx.lineTo(this.width/2, 0);
-        ctx.moveTo(0, -this.height/2);
-        ctx.lineTo(0, this.height/2);
-        ctx.stroke();
-
-        this.drawHealthBar(ctx);
-        ctx.restore();
-    }
-}
-
-export class Windmill extends Building {
-    constructor(x, y) {
-        super(x, y, 'windmill');
         this.width = 50;
         this.height = 50;
         this.radius = 25;
-        this.health = 150;
-        this.maxHealth = 150;
-        this.cost = { wood: 50, stone: 20, food: 0, gold: 0 };
-
-        this.productionTimer = 0;
-        this.productionRate = 1000;
-        this.rotation = 0;
-    }
-
-    update(deltaTime) {
-        this.productionTimer += deltaTime;
-        this.rotation += deltaTime * 0.001;
+        this.health = 300;
+        this.maxHealth = 300;
     }
 
     draw(ctx) {
@@ -65,47 +23,27 @@ export class Windmill extends Building {
         ctx.save();
         ctx.translate(this.x, this.y);
 
-        // Base
-        ctx.fillStyle = '#ecf0f1';
-        ctx.fillRect(-this.width/2, -this.height/2, this.width, this.height);
+        // Concrete wall
+        ctx.fillStyle = '#4a4a4a';
+        ctx.fillRect(-this.width / 2, -this.height / 2, this.width, this.height);
 
-        this.drawHealthBar(ctx);
+        // Darker edges
+        ctx.fillStyle = '#3a3a3a';
+        ctx.fillRect(-this.width / 2, -this.height / 2, this.width, 5);
+        ctx.fillRect(-this.width / 2, this.height / 2 - 5, this.width, 5);
+        ctx.fillRect(-this.width / 2, -this.height / 2, 5, this.height);
+        ctx.fillRect(this.width / 2 - 5, -this.height / 2, 5, this.height);
 
-        // Blades
-        ctx.rotate(this.rotation);
-        ctx.fillStyle = '#e67e22';
-        ctx.fillRect(-60, -5, 120, 10);
-        ctx.fillRect(-5, -60, 10, 120);
-
-        ctx.restore();
-    }
-}
-
-export class Portal extends Building {
-    constructor(x, y, destination) {
-        super(x, y, 'portal');
-        this.destination = destination; // 'raid' or 'home'
-        this.width = 100;
-        this.height = 100;
-        this.radius = 50;
-        this.health = 99999; // Indestructible
-        this.maxHealth = 99999;
-    }
-
-    draw(ctx) {
-        if (!this.active) return;
-        ctx.save();
-        ctx.translate(this.x, this.y);
-
-        ctx.fillStyle = this.destination === 'raid' ? 'rgba(231, 76, 60, 0.5)' : 'rgba(46, 204, 113, 0.5)';
-        ctx.beginPath();
-        ctx.arc(0, 0, 40, 0, Math.PI*2);
-        ctx.fill();
-
-        ctx.fillStyle = 'white';
-        ctx.font = 'bold 16px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText(this.destination === 'raid' ? 'TO RAID' : 'EXTRACT', 0, 5);
+        // Damage cracks
+        if (this.health < this.maxHealth * 0.5) {
+            ctx.strokeStyle = '#2a2a2a';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(-10, -15);
+            ctx.lineTo(5, 10);
+            ctx.lineTo(-5, 15);
+            ctx.stroke();
+        }
 
         ctx.restore();
     }
@@ -114,11 +52,13 @@ export class Portal extends Building {
 export class Stash extends Building {
     constructor(x, y) {
         super(x, y, 'stash');
-        this.width = 60;
-        this.height = 40;
-        this.radius = 30;
-        this.health = 500;
-        this.maxHealth = 500;
+        this.width = 80;
+        this.height = 50;
+        this.radius = 40;
+        this.health = 1000;
+        this.maxHealth = 1000;
+        this.interactable = true;
+        this.solid = false;
     }
 
     draw(ctx) {
@@ -126,31 +66,45 @@ export class Stash extends Building {
         ctx.save();
         ctx.translate(this.x, this.y);
 
+        // Container body
+        ctx.fillStyle = '#2c3e50';
+        ctx.fillRect(-40, -25, 80, 50);
+
+        // Lid
         ctx.fillStyle = '#34495e';
-        ctx.fillRect(-30, -20, 60, 40);
-        ctx.strokeStyle = '#f1c40f';
-        ctx.lineWidth = 3;
-        ctx.strokeRect(-30, -20, 60, 40);
+        ctx.fillRect(-42, -28, 84, 10);
 
+        // Lock
+        ctx.fillStyle = '#f1c40f';
+        ctx.fillRect(-5, -5, 10, 15);
+        ctx.fillStyle = '#1a1a1a';
+        ctx.beginPath();
+        ctx.arc(0, 0, 3, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Label
         ctx.fillStyle = 'white';
-        ctx.font = '12px Arial';
+        ctx.font = 'bold 12px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText('STASH', 0, 5);
+        ctx.fillText('STASH', 0, 35);
+        ctx.font = '10px Arial';
+        ctx.fillStyle = '#f1c40f';
+        ctx.fillText('[F] Open', 0, 48);
 
-        this.drawHealthBar(ctx);
         ctx.restore();
     }
 }
 
-export class StoneWall extends Building {
+export class Workbench extends Building {
     constructor(x, y) {
-        super(x, y, 'stone_wall');
-        this.width = 40;
-        this.height = 40;
-        this.radius = 20;
+        super(x, y, 'workbench');
+        this.width = 80;
+        this.height = 50;
+        this.radius = 40;
         this.health = 500;
         this.maxHealth = 500;
-        this.cost = { wood: 0, stone: 10, food: 0, gold: 0 };
+        this.interactable = true;
+        this.solid = false;
     }
 
     draw(ctx) {
@@ -158,37 +112,46 @@ export class StoneWall extends Building {
         ctx.save();
         ctx.translate(this.x, this.y);
 
+        // Table
+        ctx.fillStyle = '#8B4513';
+        ctx.fillRect(-40, -20, 80, 40);
+
+        // Legs
+        ctx.fillStyle = '#5d4037';
+        ctx.fillRect(-38, 20, 8, 15);
+        ctx.fillRect(30, 20, 8, 15);
+
+        // Tools
         ctx.fillStyle = '#7f8c8d';
-        ctx.fillRect(-this.width/2, -this.height/2, this.width, this.height);
+        ctx.fillRect(-30, -15, 20, 5); // Wrench
+        ctx.fillStyle = '#e74c3c';
+        ctx.fillRect(5, -15, 15, 5); // Screwdriver handle
+        ctx.fillStyle = '#95a5a6';
+        ctx.fillRect(20, -15, 10, 3); // Screwdriver
 
-        // Stone texture
-        ctx.strokeStyle = '#2c3e50';
-        ctx.strokeRect(-this.width/2, -this.height/2, this.width, this.height);
+        // Label
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 11px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('WORKBENCH', 0, 50);
+        ctx.font = '10px Arial';
+        ctx.fillStyle = '#3498db';
+        ctx.fillText('[F] Craft', 0, 62);
 
-        this.drawHealthBar(ctx);
         ctx.restore();
     }
 }
 
-export class GoldMine extends Building {
+export class MedStation extends Building {
     constructor(x, y) {
-        super(x, y, 'gold_mine');
+        super(x, y, 'medstation');
         this.width = 60;
         this.height = 60;
         this.radius = 30;
-        this.health = 300;
-        this.maxHealth = 300;
-        this.cost = { wood: 50, stone: 50, food: 0, gold: 0 };
-
-        this.productionTimer = 0;
-        this.productionRate = 1000; // 1 gold per second
-    }
-
-    update(deltaTime) {
-        this.productionTimer += deltaTime;
-        // Game will handle giving gold to player, or we do it here if we pass player/game reference
-        // Ideally, Buildings shouldn't know about Game.
-        // Game should iterate buildings and collect resources.
+        this.health = 500;
+        this.maxHealth = 500;
+        this.interactable = true;
+        this.solid = false;
     }
 
     draw(ctx) {
@@ -196,32 +159,52 @@ export class GoldMine extends Building {
         ctx.save();
         ctx.translate(this.x, this.y);
 
-        ctx.fillStyle = '#f39c12';
-        ctx.fillRect(-this.width/2, -this.height/2, this.width, this.height);
+        // Cabinet
+        ctx.fillStyle = '#ecf0f1';
+        ctx.fillRect(-30, -30, 60, 60);
 
-        ctx.fillStyle = '#f1c40f';
+        // Red cross
+        ctx.fillStyle = '#e74c3c';
+        ctx.fillRect(-5, -20, 10, 40);
+        ctx.fillRect(-20, -5, 40, 10);
+
+        // Door lines
+        ctx.strokeStyle = '#bdc3c7';
+        ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.arc(0, 0, 15, 0, Math.PI*2);
-        ctx.fill();
+        ctx.moveTo(0, -30);
+        ctx.lineTo(0, 30);
+        ctx.stroke();
 
-        this.drawHealthBar(ctx);
+        // Label
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 11px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('MED STATION', 0, 45);
+        ctx.font = '10px Arial';
+        ctx.fillStyle = '#27ae60';
+        ctx.fillText('[F] Craft', 0, 57);
+
         ctx.restore();
     }
 }
 
-export class Tower extends Building {
-    constructor(x, y) {
-        super(x, y, 'tower');
-        this.width = 50;
-        this.height = 50;
-        this.radius = 25;
-        this.health = 400;
-        this.maxHealth = 400;
-        this.cost = { wood: 50, stone: 20, food: 0, gold: 0 };
+export class Portal extends Building {
+    constructor(x, y, destination) {
+        super(x, y, 'portal');
+        this.destination = destination;
+        this.width = 80;
+        this.height = 100;
+        this.radius = 50;
+        this.health = 99999;
+        this.maxHealth = 99999;
+        this.interactable = true;
+        this.solid = false;
+        this.pulsePhase = 0;
+    }
 
-        this.range = 300;
-        this.fireTimer = 0;
-        this.fireRate = 1000;
+    update(deltaTime) {
+        this.pulsePhase += deltaTime * 0.003;
     }
 
     draw(ctx) {
@@ -229,23 +212,36 @@ export class Tower extends Building {
         ctx.save();
         ctx.translate(this.x, this.y);
 
-        // Base
-        ctx.fillStyle = '#7f8c8d';
-        ctx.fillRect(-this.width/2, -this.height/2, this.width, this.height);
+        const pulse = Math.sin(this.pulsePhase) * 0.15 + 0.85;
 
-        // Top
-        ctx.fillStyle = '#95a5a6';
-        ctx.beginPath();
-        ctx.arc(0, 0, 20, 0, Math.PI*2);
-        ctx.fill();
+        // Door frame
+        ctx.fillStyle = '#2c3e50';
+        ctx.fillRect(-45, -55, 90, 110);
 
-        // Cannon/Archer indicator
-        ctx.fillStyle = 'black';
-        ctx.beginPath();
-        ctx.arc(0, 0, 5, 0, Math.PI*2);
-        ctx.fill();
+        // Inner glow
+        ctx.fillStyle = this.destination === 'mapselect'
+            ? `rgba(231, 76, 60, ${0.3 * pulse})`
+            : `rgba(46, 204, 113, ${0.3 * pulse})`;
+        ctx.fillRect(-40, -50, 80, 100);
 
-        this.drawHealthBar(ctx);
+        // Swirling effect
+        ctx.strokeStyle = this.destination === 'mapselect' ? '#e74c3c' : '#2ecc71';
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 3; i++) {
+            ctx.beginPath();
+            ctx.arc(0, 0, 20 + i * 10, this.pulsePhase + i, this.pulsePhase + i + Math.PI);
+            ctx.stroke();
+        }
+
+        // Text
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 14px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(this.destination === 'mapselect' ? 'TO RAID' : 'EXIT', 0, 5);
+        ctx.font = '10px Arial';
+        ctx.fillStyle = '#f1c40f';
+        ctx.fillText('[F] Enter', 0, 65);
+
         ctx.restore();
     }
 }
