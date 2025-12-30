@@ -1,7 +1,7 @@
 import { InputHandler } from './input.js';
 import { Player } from './player.js';
 import { Tree, Stone, FoodCrate, MysteryCrate } from './objects.js';
-import { Wall, StoneWall, Tower, GoldMine, Windmill } from './buildings.js';
+import { Wall, StoneWall, Tower, GoldMine, Windmill, Portal, Stash } from './buildings.js';
 import { Peasant, Guard, Wolf, Bear, Horse, Bandit } from './units.js';
 import { FloatingText } from './effects.js';
 import { Projectile } from './projectiles.js';
@@ -28,7 +28,10 @@ export class Game {
         this.gameObjects = [];
         this.effects = [];
         this.projectiles = [];
-        this.generateWorld();
+
+        this.inRaid = false;
+        this.homeState = null;
+        this.loadHome();
 
         // Building State
         this.buildMode = null; // 'Wall', 'StoneWall', etc.
@@ -72,39 +75,68 @@ export class Game {
         });
     }
 
-    generateWorld() {
-        // Add Trees
-        for (let i = 0; i < 100; i++) {
-            this.gameObjects.push(new Tree(randomInt(0, this.worldWidth), randomInt(0, this.worldHeight)));
+    loadHome() {
+        this.inRaid = false;
+        this.projectiles = [];
+        this.player.x = this.worldWidth / 2;
+        this.player.y = this.worldHeight / 2;
+
+        if (this.homeState) {
+            this.gameObjects = this.homeState;
+            this.addFloatingText(this.player.x, this.player.y - 100, "WELCOME BACK", "cyan");
+        } else {
+            this.gameObjects = [];
+            // Center
+            const cx = this.worldWidth / 2;
+            const cy = this.worldHeight / 2;
+
+            // Ruined House (Walls)
+            this.gameObjects.push(new Wall(cx - 60, cy - 60));
+            this.gameObjects.push(new Wall(cx - 20, cy - 60));
+            this.gameObjects.push(new Wall(cx + 60, cy - 60)); // Gap
+            this.gameObjects.push(new Wall(cx + 60, cy - 20));
+            this.gameObjects.push(new Wall(cx + 60, cy + 20));
+            this.gameObjects.push(new Wall(cx - 60, cy + 20));
+            this.gameObjects.push(new Wall(cx - 60, cy - 20));
+
+            // Stash
+            this.gameObjects.push(new Stash(cx + 100, cy));
+
+            // Portal to Raid
+            this.gameObjects.push(new Portal(cx - 200, cy, 'raid'));
+
+            // Decoration
+            for (let i=0; i<20; i++) this.gameObjects.push(new Tree(randomInt(0, this.worldWidth), randomInt(0, this.worldHeight)));
+
+            this.addFloatingText(cx, cy - 100, "HOME SWEET HOME", "cyan");
         }
-        // Add Stones
-        for (let i = 0; i < 50; i++) {
-            this.gameObjects.push(new Stone(randomInt(0, this.worldWidth), randomInt(0, this.worldHeight)));
-        }
-        // Add Food
-        for (let i = 0; i < 30; i++) {
-            this.gameObjects.push(new FoodCrate(randomInt(0, this.worldWidth), randomInt(0, this.worldHeight)));
-        }
-        // Add Wolves
-        for (let i = 0; i < 10; i++) {
-            this.gameObjects.push(new Wolf(randomInt(0, this.worldWidth), randomInt(0, this.worldHeight)));
-        }
-        // Add Bears
-        for (let i = 0; i < 5; i++) {
-            this.gameObjects.push(new Bear(randomInt(0, this.worldWidth), randomInt(0, this.worldHeight)));
-        }
-        // Add Horses
-        for (let i = 0; i < 5; i++) {
-            this.gameObjects.push(new Horse(randomInt(0, this.worldWidth), randomInt(0, this.worldHeight)));
-        }
-        // Add Bandits
-        for (let i = 0; i < 5; i++) {
-            this.gameObjects.push(new Bandit(randomInt(0, this.worldWidth), randomInt(0, this.worldHeight)));
-        }
-        // Add Mystery Crates
-        for (let i = 0; i < 5; i++) {
-            this.gameObjects.push(new MysteryCrate(randomInt(0, this.worldWidth), randomInt(0, this.worldHeight)));
-        }
+    }
+
+    loadRaid() {
+        // Save Home State
+        this.homeState = this.gameObjects;
+
+        this.inRaid = true;
+        this.gameObjects = [];
+        this.projectiles = [];
+        this.player.x = 200;
+        this.player.y = 200;
+
+        // Extraction Point
+        this.gameObjects.push(new Portal(this.worldWidth - 200, this.worldHeight - 200, 'home'));
+
+        // Resources
+        for (let i = 0; i < 100; i++) this.gameObjects.push(new Tree(randomInt(0, this.worldWidth), randomInt(0, this.worldHeight)));
+        for (let i = 0; i < 50; i++) this.gameObjects.push(new Stone(randomInt(0, this.worldWidth), randomInt(0, this.worldHeight)));
+        for (let i = 0; i < 30; i++) this.gameObjects.push(new FoodCrate(randomInt(0, this.worldWidth), randomInt(0, this.worldHeight)));
+
+        // Enemies
+        for (let i = 0; i < 10; i++) this.gameObjects.push(new Wolf(randomInt(0, this.worldWidth), randomInt(0, this.worldHeight)));
+        for (let i = 0; i < 5; i++) this.gameObjects.push(new Bear(randomInt(0, this.worldWidth), randomInt(0, this.worldHeight)));
+        for (let i = 0; i < 5; i++) this.gameObjects.push(new Bandit(randomInt(0, this.worldWidth), randomInt(0, this.worldHeight)));
+        for (let i = 0; i < 5; i++) this.gameObjects.push(new MysteryCrate(randomInt(0, this.worldWidth), randomInt(0, this.worldHeight)));
+
+        this.addFloatingText(this.player.x, this.player.y - 100, "RAID STARTED. FIND EXTRACT!", "red");
     }
 
     start() {
@@ -229,26 +261,38 @@ export class Game {
             this.fakePlayers.forEach(p => p.score += randomInt(0, 20)); // Slow increment
             this.updateLeaderboardUI();
 
-            // Regen Resources
-            const trees = this.gameObjects.filter(o => o instanceof Tree).length;
-            if (trees < 100) this.gameObjects.push(new Tree(randomInt(0, this.worldWidth), randomInt(0, this.worldHeight)));
+            // Regen Resources (Only in Raid)
+            if (this.inRaid) {
+                const trees = this.gameObjects.filter(o => o instanceof Tree).length;
+                if (trees < 100) this.gameObjects.push(new Tree(randomInt(0, this.worldWidth), randomInt(0, this.worldHeight)));
 
-            const stones = this.gameObjects.filter(o => o instanceof Stone).length;
-            if (stones < 50) this.gameObjects.push(new Stone(randomInt(0, this.worldWidth), randomInt(0, this.worldHeight)));
+                const stones = this.gameObjects.filter(o => o instanceof Stone).length;
+                if (stones < 50) this.gameObjects.push(new Stone(randomInt(0, this.worldWidth), randomInt(0, this.worldHeight)));
 
-            // Respawn Enemies
-            if (Math.random() < 0.2) { // 20% chance per second
-                 this.gameObjects.push(new Wolf(randomInt(0, this.worldWidth), randomInt(0, this.worldHeight)));
+                // Respawn Enemies
+                if (Math.random() < 0.2) {
+                     this.gameObjects.push(new Wolf(randomInt(0, this.worldWidth), randomInt(0, this.worldHeight)));
+                }
             }
         }
 
         // Clean up inactive objects
         this.gameObjects = this.gameObjects.filter(obj => obj.active);
 
-        // Game Over Check
+        // Death Logic (Tarkov Style)
         if (this.player.hp <= 0) {
-            this.running = false;
-            document.getElementById('game-over-screen').style.display = 'flex';
+            this.player.hp = this.player.maxHp;
+
+            if (this.inRaid) {
+                // Lost items
+                this.player.resources = { wood:0, stone:0, food:0, gold:0 };
+                this.updateUI();
+                alert("You died in raid! Lost all carried loot."); // Simple feedback
+                this.loadHome();
+            } else {
+                this.player.x = this.worldWidth / 2;
+                this.player.y = this.worldHeight / 2;
+            }
         }
     }
 
@@ -330,10 +374,10 @@ export class Game {
     }
 
     updateUI() {
-        document.getElementById('wood-count').innerText = this.player.resources.wood;
-        document.getElementById('stone-count').innerText = this.player.resources.stone;
-        document.getElementById('food-count').innerText = this.player.resources.food;
-        document.getElementById('gold-count').innerText = this.player.resources.gold;
+        document.getElementById('wood-count').innerText = `${this.player.resources.wood} (${this.player.bank.wood})`;
+        document.getElementById('stone-count').innerText = `${this.player.resources.stone} (${this.player.bank.stone})`;
+        document.getElementById('food-count').innerText = `${this.player.resources.food} (${this.player.bank.food})`;
+        document.getElementById('gold-count').innerText = `${this.player.resources.gold} (${this.player.bank.gold})`;
         document.getElementById('level-count').innerText = this.player.level;
         document.getElementById('weapon-name').innerText = this.player.currentWeapon.name;
     }
@@ -422,8 +466,42 @@ export class Game {
                  this.gameObjects.push(new Horse(this.player.x, this.player.y));
                  this.addFloatingText(this.player.x, this.player.y - 40, "Dismounted", "white");
              } else {
-                 // Try mount
+                 // Try Interact (Mount, Portal, Stash)
                  for (const obj of this.gameObjects) {
+                     if (!obj.active) continue;
+
+                     // Portal
+                     if (obj instanceof Portal && checkCircleCollision(this.player, obj)) {
+                         if (obj.destination === 'raid') {
+                             this.loadRaid();
+                         } else {
+                             this.addFloatingText(this.player.x, this.player.y, "EXTRACTED! +LOOT", "lime");
+                             this.loadHome();
+                         }
+                         break;
+                     }
+
+                     // Stash
+                     if (obj instanceof Stash && checkCircleCollision(this.player, obj)) {
+                         let deposited = false;
+                         for (const res in this.player.resources) {
+                             const amount = this.player.resources[res];
+                             if (amount > 0) {
+                                 this.player.bank[res] += amount;
+                                 this.player.resources[res] = 0;
+                                 deposited = true;
+                             }
+                         }
+                         if (deposited) {
+                             this.addFloatingText(this.player.x, this.player.y - 40, "All items deposited!", "gold");
+                             this.updateUI();
+                         } else {
+                             this.addFloatingText(this.player.x, this.player.y - 40, "Inventory Empty", "white");
+                         }
+                         break;
+                     }
+
+                     // Mount
                      if (obj instanceof Horse && checkCircleCollision(this.player, obj)) {
                          obj.active = false;
                          this.player.mountType = 'horse';

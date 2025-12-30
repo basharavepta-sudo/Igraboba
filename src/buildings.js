@@ -81,6 +81,67 @@ export class Windmill extends Building {
     }
 }
 
+export class Portal extends Building {
+    constructor(x, y, destination) {
+        super(x, y, 'portal');
+        this.destination = destination; // 'raid' or 'home'
+        this.width = 100;
+        this.height = 100;
+        this.radius = 50;
+        this.health = 99999; // Indestructible
+        this.maxHealth = 99999;
+    }
+
+    draw(ctx) {
+        if (!this.active) return;
+        ctx.save();
+        ctx.translate(this.x, this.y);
+
+        ctx.fillStyle = this.destination === 'raid' ? 'rgba(231, 76, 60, 0.5)' : 'rgba(46, 204, 113, 0.5)';
+        ctx.beginPath();
+        ctx.arc(0, 0, 40, 0, Math.PI*2);
+        ctx.fill();
+
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 16px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(this.destination === 'raid' ? 'TO RAID' : 'EXTRACT', 0, 5);
+
+        ctx.restore();
+    }
+}
+
+export class Stash extends Building {
+    constructor(x, y) {
+        super(x, y, 'stash');
+        this.width = 60;
+        this.height = 40;
+        this.radius = 30;
+        this.health = 500;
+        this.maxHealth = 500;
+    }
+
+    draw(ctx) {
+        if (!this.active) return;
+        ctx.save();
+        ctx.translate(this.x, this.y);
+
+        ctx.fillStyle = '#34495e';
+        ctx.fillRect(-30, -20, 60, 40);
+        ctx.strokeStyle = '#f1c40f';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(-30, -20, 60, 40);
+
+        ctx.fillStyle = 'white';
+        ctx.font = '12px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('STASH', 0, 5);
+
+        this.drawHealthBar(ctx);
+        ctx.restore();
+    }
+}
+
 export class StoneWall extends Building {
     constructor(x, y) {
         super(x, y, 'stone_wall');

@@ -13,6 +13,14 @@ export class Player {
             gold: 0
         };
 
+        // Stash (Bank)
+        this.bank = {
+            wood: 0,
+            stone: 0,
+            food: 0,
+            gold: 0
+        };
+
         // Stats
         this.hp = 100;
         this.maxHp = 100;
