@@ -4,10 +4,11 @@ export class GameObject {
         this.y = y;
         this.type = type;
         this.active = true;
+        this.hitTimer = 0;
     }
 
     update(deltaTime) {
-        // Base update
+        if (this.hitTimer > 0) this.hitTimer -= deltaTime;
     }
 
     draw(ctx) {

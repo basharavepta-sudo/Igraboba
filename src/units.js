@@ -13,7 +13,7 @@ export class Unit extends GameObject {
         this.target = null;
     }
 
-    update(deltaTime, gameObjects, player) {
+    update(deltaTime, game) {
         if (this.attackCooldown > 0) this.attackCooldown -= deltaTime;
         // AI logic implemented in subclasses
     }
@@ -36,6 +36,10 @@ export class Unit extends GameObject {
         if (!this.active) return;
         ctx.save();
         ctx.translate(this.x, this.y);
+
+        // Bobbing Animation
+        const bob = Math.sin(Date.now() / 200) * 0.05;
+        ctx.scale(1 + bob, 1 - bob);
 
         // Draw Unit Circle
         ctx.fillStyle = this.color || 'white';
@@ -73,9 +77,12 @@ export class Peasant extends Unit {
         this.speed = 0.08;
     }
 
-    update(deltaTime, gameObjects, player) {
-        super.update(deltaTime, gameObjects, player);
+    update(deltaTime, game) {
+        super.update(deltaTime, game);
         if (!this.active) return;
+
+        const gameObjects = game.gameObjects;
+        const player = game.player;
 
         // Find nearest resource
         if (!this.target || !this.target.active) {
@@ -102,13 +109,13 @@ export class Peasant extends Unit {
                 // Attack
                 if (this.attackCooldown <= 0) {
                     this.target.health -= this.damage;
+                    game.addFloatingText(this.target.x, this.target.y - 20, `-${this.damage}`, 'white');
                     this.attackCooldown = this.attackRate;
                     if (this.target.health <= 0) {
                         this.target.active = false;
                         // Give resource to player
                         if (player) {
                             player.resources[this.target.resourceType] += this.target.resourceAmount;
-                            // dirty hack: trigger UI update if possible, or wait for next frame
                         }
                         this.target = null;
                     }
@@ -117,6 +124,77 @@ export class Peasant extends Unit {
         } else {
             // Follow player if no trees
             if (player) this.moveTowards(player.x, player.y, deltaTime);
+        }
+    }
+}
+
+export class Bear extends Unit {
+    constructor(x, y) {
+        super(x, y, 'bear');
+        this.health = 200;
+        this.maxHealth = 200;
+        this.color = '#5d4037'; // Brown
+        this.team = 'enemy';
+        this.damage = 25;
+        this.speed = 0.05;
+        this.radius = 25;
+
+        // Loot
+        this.resourceType = 'gold';
+        this.resourceAmount = 50;
+    }
+
+    update(deltaTime, game) {
+        super.update(deltaTime, game);
+        if (!this.active) return;
+
+        const gameObjects = game.gameObjects;
+        const player = game.player;
+
+        // Find nearest Player or Player Unit
+        let minDist = 500 * 500;
+        let nearest = null;
+
+        // Check Player
+        if (player) {
+            const d = (player.x - this.x)**2 + (player.y - this.y)**2;
+            if (d < minDist) {
+                minDist = d;
+                nearest = player;
+            }
+        }
+
+        // Check Units
+        for (const obj of gameObjects) {
+            if (!obj.active) continue;
+            if (obj.team === 'player') {
+                const d = (obj.x - this.x)**2 + (obj.y - this.y)**2;
+                if (d < minDist) {
+                    minDist = d;
+                    nearest = obj;
+                }
+            }
+        }
+
+        this.target = nearest;
+
+        if (this.target) {
+            const dist = this.moveTowards(this.target.x, this.target.y, deltaTime);
+            const targetRadius = this.target.radius || 20;
+
+            if (dist < this.attackRange + targetRadius) {
+                if (this.attackCooldown <= 0) {
+                    // Deal damage
+                    if (this.target === player) {
+                        player.hp -= this.damage;
+                        game.addFloatingText(player.x, player.y - 30, `-${this.damage}`, 'red');
+                    } else {
+                        this.target.health -= this.damage;
+                        game.addFloatingText(this.target.x, this.target.y - 20, `-${this.damage}`, 'white');
+                    }
+                    this.attackCooldown = this.attackRate;
+                }
+            }
         }
     }
 }
@@ -131,16 +209,19 @@ export class Guard extends Unit {
         this.damage = 15;
     }
 
-    update(deltaTime, gameObjects, player) {
-        super.update(deltaTime, gameObjects, player);
+    update(deltaTime, game) {
+        super.update(deltaTime, game);
         if (!this.active) return;
+
+        const gameObjects = game.gameObjects;
+        const player = game.player;
 
         // Find nearest enemy (Wolf)
         let minDist = 400 * 400; // Aggro range
         let nearest = null;
         for (const obj of gameObjects) {
             if (!obj.active) continue;
-            if (obj.type === 'wolf') {
+            if (obj.type === 'wolf' || obj.type === 'bear') {
                 const dx = obj.x - this.x;
                 const dy = obj.y - this.y;
                 const dist = dx*dx + dy*dy;
@@ -157,6 +238,7 @@ export class Guard extends Unit {
             if (dist < this.attackRange + this.target.radius) {
                 if (this.attackCooldown <= 0) {
                     this.target.health -= this.damage;
+                    game.addFloatingText(this.target.x, this.target.y - 20, `-${this.damage}`, 'white');
                     this.attackCooldown = this.attackRate;
                 }
             }
@@ -187,9 +269,12 @@ export class Wolf extends Unit {
         this.resourceAmount = 20;
     }
 
-    update(deltaTime, gameObjects, player) {
-        super.update(deltaTime, gameObjects, player);
+    update(deltaTime, game) {
+        super.update(deltaTime, game);
         if (!this.active) return;
+
+        const gameObjects = game.gameObjects;
+        const player = game.player;
 
         // Find nearest Player or Player Unit
         let minDist = 500 * 500;
@@ -227,11 +312,11 @@ export class Wolf extends Unit {
                 if (this.attackCooldown <= 0) {
                     // Deal damage
                     if (this.target === player) {
-                        // Player takes damage (needs logic in Player or here)
-                        // Player doesn't have takeDamage method yet, just hp
                         player.hp -= this.damage;
+                        game.addFloatingText(player.x, player.y - 30, `-${this.damage}`, 'red');
                     } else {
                         this.target.health -= this.damage;
+                        game.addFloatingText(this.target.x, this.target.y - 20, `-${this.damage}`, 'white');
                     }
                     this.attackCooldown = this.attackRate;
                 }

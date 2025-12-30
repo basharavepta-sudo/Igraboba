@@ -1,8 +1,9 @@
 import { InputHandler } from './input.js';
 import { Player } from './player.js';
 import { Tree, Stone, FoodCrate } from './objects.js';
-import { Wall, StoneWall, Tower, GoldMine } from './buildings.js';
-import { Peasant, Guard, Wolf } from './units.js';
+import { Wall, StoneWall, Tower, GoldMine, Windmill } from './buildings.js';
+import { Peasant, Guard, Wolf, Bear } from './units.js';
+import { FloatingText } from './effects.js';
 import { randomInt, checkCircleCollision } from './utils.js';
 
 export class Game {
@@ -24,6 +25,7 @@ export class Game {
 
         // Objects
         this.gameObjects = [];
+        this.effects = [];
         this.generateWorld();
 
         // Building State
@@ -43,7 +45,29 @@ export class Game {
         this.leaderboardTimer = 0;
 
         // Camera offset
-        this.camera = { x: 0, y: 0 };
+        this.camera = {
+            x: this.player.x - this.width / 2,
+            y: this.player.y - this.height / 2
+        };
+
+        this.running = false;
+        this.setupUI();
+    }
+
+    setupUI() {
+        const startBtn = document.getElementById('start-btn');
+        const restartBtn = document.getElementById('restart-btn');
+        const startScreen = document.getElementById('start-screen');
+        const gameOverScreen = document.getElementById('game-over-screen');
+
+        startBtn.addEventListener('click', () => {
+            this.running = true;
+            startScreen.style.display = 'none';
+        });
+
+        restartBtn.addEventListener('click', () => {
+            location.reload();
+        });
     }
 
     generateWorld() {
@@ -62,6 +86,10 @@ export class Game {
         // Add Wolves
         for (let i = 0; i < 10; i++) {
             this.gameObjects.push(new Wolf(randomInt(0, this.worldWidth), randomInt(0, this.worldHeight)));
+        }
+        // Add Bears
+        for (let i = 0; i < 5; i++) {
+            this.gameObjects.push(new Bear(randomInt(0, this.worldWidth), randomInt(0, this.worldHeight)));
         }
     }
 
@@ -85,6 +113,8 @@ export class Game {
     }
 
     update(deltaTime) {
+        if (!this.running) return;
+
         // Update game state
         if (this.player) {
             this.player.update(deltaTime, this.input, !this.buildMode);
@@ -127,14 +157,25 @@ export class Game {
 
         // Update Objects
         this.gameObjects.forEach(obj => {
-            obj.update(deltaTime, this.gameObjects, this.player);
+            obj.update(deltaTime, this);
             // Handle Gold Mine Production
             if (obj instanceof GoldMine && obj.productionTimer >= obj.productionRate) {
                 obj.productionTimer = 0;
                 this.player.resources.gold += 1;
+                this.addFloatingText(obj.x, obj.y - 40, "+1 Gold", "gold");
+                this.updateUI();
+            }
+            if (obj instanceof Windmill && obj.productionTimer >= obj.productionRate) {
+                obj.productionTimer = 0;
+                this.player.resources.food += 5;
+                this.addFloatingText(obj.x, obj.y - 40, "+5 Food", "orange");
                 this.updateUI();
             }
         });
+
+        // Update Effects
+        this.effects.forEach(e => e.update(deltaTime));
+        this.effects = this.effects.filter(e => e.active);
 
         // Handle Unit Spawning
         this.handleUnitInput();
@@ -152,10 +193,8 @@ export class Game {
 
         // Game Over Check
         if (this.player.hp <= 0) {
-            alert("Game Over! Refresh to restart.");
-            this.player.hp = 100; // Reset for now
-            this.player.x = 1000;
-            this.player.y = 1000;
+            this.running = false;
+            document.getElementById('game-over-screen').style.display = 'flex';
         }
     }
 
@@ -182,6 +221,8 @@ export class Game {
                 if (Math.abs(angleDiff) < Math.PI / 3) { // 60 degree cone
                     // Hit!
                     obj.health -= this.player.damage;
+                    this.addFloatingText(obj.x, obj.y - 30, `-${this.player.damage}`, 'white');
+
                     if (obj.health <= 0) {
                         obj.active = false;
 
@@ -232,6 +273,9 @@ export class Game {
         // Draw Objects
         this.gameObjects.forEach(obj => obj.draw(this.ctx));
 
+        // Draw Effects
+        this.effects.forEach(e => e.draw(this.ctx));
+
         this.drawBuildingPreview();
 
         // Draw Player
@@ -272,6 +316,7 @@ export class Game {
         if (this.input.isKeyDown('Digit2')) this.setBuildMode(StoneWall);
         if (this.input.isKeyDown('Digit3')) this.setBuildMode(Tower);
         if (this.input.isKeyDown('Digit4')) this.setBuildMode(GoldMine);
+        if (this.input.isKeyDown('Digit7')) this.setBuildMode(Windmill);
 
         if (this.input.mouse.rightDown) {
             this.buildMode = null;
@@ -406,6 +451,10 @@ export class Game {
             this.ctx.strokeStyle = 'rgba(255, 0, 0, 0.3)';
             this.ctx.stroke();
         }
+    }
+
+    addFloatingText(x, y, text, color) {
+        this.effects.push(new FloatingText(x, y, text, color));
     }
 
     updateLeaderboardUI() {

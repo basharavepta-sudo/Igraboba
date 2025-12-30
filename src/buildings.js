@@ -40,6 +40,47 @@ export class Wall extends Building {
     }
 }
 
+export class Windmill extends Building {
+    constructor(x, y) {
+        super(x, y, 'windmill');
+        this.width = 50;
+        this.height = 50;
+        this.radius = 25;
+        this.health = 150;
+        this.maxHealth = 150;
+        this.cost = { wood: 50, stone: 20, food: 0, gold: 0 };
+
+        this.productionTimer = 0;
+        this.productionRate = 1000;
+        this.rotation = 0;
+    }
+
+    update(deltaTime) {
+        this.productionTimer += deltaTime;
+        this.rotation += deltaTime * 0.001;
+    }
+
+    draw(ctx) {
+        if (!this.active) return;
+        ctx.save();
+        ctx.translate(this.x, this.y);
+
+        // Base
+        ctx.fillStyle = '#ecf0f1';
+        ctx.fillRect(-this.width/2, -this.height/2, this.width, this.height);
+
+        this.drawHealthBar(ctx);
+
+        // Blades
+        ctx.rotate(this.rotation);
+        ctx.fillStyle = '#e67e22';
+        ctx.fillRect(-60, -5, 120, 10);
+        ctx.fillRect(-5, -60, 10, 120);
+
+        ctx.restore();
+    }
+}
+
 export class StoneWall extends Building {
     constructor(x, y) {
         super(x, y, 'stone_wall');
