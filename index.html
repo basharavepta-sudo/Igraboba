@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Glor.io Clone</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="ui-layer">
+        <div class="resource-bar">
+            <div class="resource">🌲 Wood: <span id="wood-count">0</span></div>
+            <div class="resource">🪨 Stone: <span id="stone-count">0</span></div>
+            <div class="resource">🍎 Food: <span id="food-count">0</span></div>
+            <div class="resource">💰 Gold: <span id="gold-count">0</span></div>
+            <div class="resource">⭐ Level: <span id="level-count">1</span></div>
+        </div>
+        <div id="controls-help">
+            WASD: Move | Click: Attack | 1-4: Build | 5: Peasant (50 Food) | 6: Guard (50 Food/Gold) | R-Click: Cancel
+        </div>
+        <div id="leaderboard">
+            <h3>Leaderboard</h3>
+            <ul id="leaderboard-list">
+                <!-- Items here -->
+            </ul>
+        </div>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+    <script type="module" src="src/main.js"></script>
+</body>
+</html>

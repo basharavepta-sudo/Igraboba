@@ -1,0 +1,98 @@
+body {
+    margin: 0;
+    overflow: hidden;
+    background-color: #222;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    user-select: none;
+}
+
+#gameCanvas {
+    display: block;
+}
+
+#ui-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none; /* Let clicks pass through to canvas */
+}
+
+/* Enable pointer events for actual UI elements later */
+#ui-layer > * {
+    pointer-events: auto;
+}
+
+.resource-bar {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0, 0, 0, 0.6);
+    padding: 10px 20px;
+    border-radius: 8px;
+    display: flex;
+    gap: 15px;
+    color: white;
+    font-weight: bold;
+    font-size: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.resource {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+#controls-help {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0, 0, 0, 0.5);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 20px;
+    font-size: 14px;
+    pointer-events: none;
+    text-align: center;
+}
+
+#leaderboard {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background-color: rgba(0, 0, 0, 0.5);
+    color: white;
+    padding: 10px;
+    border-radius: 8px;
+    min-width: 150px;
+}
+
+#leaderboard h3 {
+    margin: 0 0 10px 0;
+    text-align: center;
+    font-size: 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+    padding-bottom: 5px;
+}
+
+#leaderboard ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+#leaderboard li {
+    display: flex;
+    justify-content: space-between;
+    font-size: 14px;
+    margin-bottom: 5px;
+}
+
+#leaderboard li.me {
+    color: #f1c40f;
+    font-weight: bold;
+}
