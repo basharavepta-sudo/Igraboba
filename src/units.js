@@ -199,6 +199,85 @@ export class Bear extends Unit {
     }
 }
 
+export class Horse extends Unit {
+    constructor(x, y) {
+        super(x, y, 'horse');
+        this.health = 100;
+        this.maxHealth = 100;
+        this.color = '#8d6e63'; // Brown/Tan
+        this.team = 'neutral';
+        this.speed = 0.05; // Roam slowly
+        this.radius = 25;
+        this.moveTimer = 0;
+        this.wanderDir = 0;
+    }
+
+    update(deltaTime, game) {
+        // Wander logic
+        this.moveTimer -= deltaTime;
+        if (this.moveTimer <= 0) {
+            this.moveTimer = 2000;
+            this.wanderDir = Math.random() * Math.PI * 2;
+        }
+
+        this.x += Math.cos(this.wanderDir) * this.speed * deltaTime;
+        this.y += Math.sin(this.wanderDir) * this.speed * deltaTime;
+    }
+}
+
+export class Bandit extends Unit {
+    constructor(x, y) {
+        super(x, y, 'bandit');
+        this.health = 80;
+        this.maxHealth = 80;
+        this.color = '#e74c3c'; // Red
+        this.team = 'enemy';
+        this.speed = 0.08;
+        this.attackRate = 2000;
+        this.radius = 20;
+
+        // Loot
+        this.resourceType = 'gold';
+        this.resourceAmount = 40;
+    }
+
+    update(deltaTime, game) {
+        super.update(deltaTime, game);
+        if (!this.active) return;
+
+        const player = game.player;
+
+        // Simple logic: Chase player, shoot if in range
+        if (player) {
+            const dist = Math.sqrt((player.x - this.x)**2 + (player.y - this.y)**2);
+            if (dist < 400) {
+                 // Move towards
+                 if (dist > 150) {
+                     this.moveTowards(player.x, player.y, deltaTime);
+                 }
+                 // Shoot
+                 if (this.attackCooldown <= 0) {
+                     const angle = Math.atan2(player.y - this.y, player.x - this.x);
+                     game.addProjectile(this.x, this.y, angle, 'enemy');
+                     this.attackCooldown = this.attackRate;
+                 }
+            }
+        }
+    }
+
+    draw(ctx) {
+        super.draw(ctx);
+        if (this.active) {
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            ctx.rotate(this.angle);
+            ctx.fillStyle = 'black';
+            ctx.fillRect(10, -3, 15, 6);
+            ctx.restore();
+        }
+    }
+}
+
 export class Guard extends Unit {
     constructor(x, y) {
         super(x, y, 'guard');

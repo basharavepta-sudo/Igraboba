@@ -64,6 +64,33 @@ export class Tree extends GameObject {
     }
 }
 
+export class MysteryCrate extends GameObject {
+    constructor(x, y) {
+        super(x, y, 'mystery_crate');
+        this.radius = 20;
+        this.health = 300;
+        this.maxHealth = 300;
+        this.resourceType = 'gold';
+        this.resourceAmount = 100;
+    }
+
+    draw(ctx) {
+        if (!this.active) return;
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.fillStyle = '#9b59b6'; // Purple
+        ctx.fillRect(-20, -20, 40, 40);
+
+        ctx.fillStyle = '#f1c40f'; // Gold Question Mark
+        ctx.font = 'bold 24px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('?', 0, 8);
+
+        this.drawHealthBar(ctx);
+        ctx.restore();
+    }
+}
+
 export class Stone extends GameObject {
     constructor(x, y) {
         super(x, y, 'stone');

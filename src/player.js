@@ -28,9 +28,18 @@ export class Player {
         this.damage = 10;
         this.weaponAngle = 0;
         this.isAttacking = false;
+        this.weaponType = 'melee'; // 'melee' or 'gun'
+        this.switchCooldown = 0;
+        this.mountType = null;
     }
 
     update(deltaTime, input, canAttack = true) {
+        // Switch Weapon
+        if (this.switchCooldown > 0) this.switchCooldown -= deltaTime;
+        if (input.isKeyDown('KeyQ') && this.switchCooldown <= 0) {
+            this.weaponType = this.weaponType === 'melee' ? 'gun' : 'melee';
+            this.switchCooldown = 300;
+        }
         // Attack Cooldown
         if (this.attackCooldown > 0) {
             this.attackCooldown -= deltaTime;
@@ -93,6 +102,17 @@ export class Player {
         ctx.translate(this.x, this.y);
         ctx.rotate(this.angle);
 
+        // Draw Mount if exists
+        if (this.mountType === 'horse') {
+            ctx.fillStyle = '#8d6e63';
+            ctx.beginPath();
+            ctx.ellipse(-10, 0, 35, 15, 0, 0, Math.PI*2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(15, 0, 10, 0, Math.PI*2);
+            ctx.fill();
+        }
+
         // Draw Player Body (Simple Circle for now, maybe add "hands")
         ctx.fillStyle = '#f1c40f'; // Yellowish "skin" tone
         ctx.strokeStyle = '#2c3e50';
@@ -117,12 +137,22 @@ export class Player {
         ctx.fill();
         ctx.stroke();
 
-        // Draw Weapon (Sword/Tool) attached to right hand
+        // Draw Weapon (Sword/Tool or Gun) attached to right hand
         ctx.save();
         ctx.translate(this.radius, 10); // Pivot at hand
         ctx.rotate(this.weaponAngle);
-        ctx.fillStyle = '#95a5a6';
-        ctx.fillRect(0, -5, 35, 10); // Draw sword from pivot
+
+        if (this.weaponType === 'gun') {
+             // Draw Gun
+             ctx.fillStyle = '#2c3e50';
+             ctx.fillRect(0, -5, 20, 10); // Handle
+             ctx.fillStyle = '#7f8c8d';
+             ctx.fillRect(10, -5, 30, 6); // Barrel
+        } else {
+             // Draw Sword
+             ctx.fillStyle = '#95a5a6';
+             ctx.fillRect(0, -5, 35, 10);
+        }
         ctx.restore();
 
         ctx.restore();

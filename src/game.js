@@ -1,9 +1,10 @@
 import { InputHandler } from './input.js';
 import { Player } from './player.js';
-import { Tree, Stone, FoodCrate } from './objects.js';
+import { Tree, Stone, FoodCrate, MysteryCrate } from './objects.js';
 import { Wall, StoneWall, Tower, GoldMine, Windmill } from './buildings.js';
-import { Peasant, Guard, Wolf, Bear } from './units.js';
+import { Peasant, Guard, Wolf, Bear, Horse, Bandit } from './units.js';
 import { FloatingText } from './effects.js';
+import { Projectile } from './projectiles.js';
 import { randomInt, checkCircleCollision } from './utils.js';
 
 export class Game {
@@ -26,6 +27,7 @@ export class Game {
         // Objects
         this.gameObjects = [];
         this.effects = [];
+        this.projectiles = [];
         this.generateWorld();
 
         // Building State
@@ -91,6 +93,18 @@ export class Game {
         for (let i = 0; i < 5; i++) {
             this.gameObjects.push(new Bear(randomInt(0, this.worldWidth), randomInt(0, this.worldHeight)));
         }
+        // Add Horses
+        for (let i = 0; i < 5; i++) {
+            this.gameObjects.push(new Horse(randomInt(0, this.worldWidth), randomInt(0, this.worldHeight)));
+        }
+        // Add Bandits
+        for (let i = 0; i < 5; i++) {
+            this.gameObjects.push(new Bandit(randomInt(0, this.worldWidth), randomInt(0, this.worldHeight)));
+        }
+        // Add Mystery Crates
+        for (let i = 0; i < 5; i++) {
+            this.gameObjects.push(new MysteryCrate(randomInt(0, this.worldWidth), randomInt(0, this.worldHeight)));
+        }
     }
 
     start() {
@@ -121,7 +135,11 @@ export class Game {
 
             // Handle Attacks
             if (this.player.justAttacked) {
-                this.handlePlayerAttack();
+                if (this.player.weaponType === 'melee') {
+                    this.handlePlayerAttack();
+                } else {
+                    this.addProjectile(this.player.x, this.player.y, this.player.angle, 'player');
+                }
                 this.player.justAttacked = false;
             }
 
@@ -177,15 +195,31 @@ export class Game {
         this.effects.forEach(e => e.update(deltaTime));
         this.effects = this.effects.filter(e => e.active);
 
+        // Update Projectiles
+        this.updateProjectiles(deltaTime);
+
         // Handle Unit Spawning
         this.handleUnitInput();
+        this.handleInteraction();
 
-        // Update Leaderboard
+        // Update Leaderboard & Spawning
         this.leaderboardTimer += deltaTime;
         if (this.leaderboardTimer > 1000) {
             this.leaderboardTimer = 0;
             this.fakePlayers.forEach(p => p.score += randomInt(0, 20)); // Slow increment
             this.updateLeaderboardUI();
+
+            // Regen Resources
+            const trees = this.gameObjects.filter(o => o instanceof Tree).length;
+            if (trees < 100) this.gameObjects.push(new Tree(randomInt(0, this.worldWidth), randomInt(0, this.worldHeight)));
+
+            const stones = this.gameObjects.filter(o => o instanceof Stone).length;
+            if (stones < 50) this.gameObjects.push(new Stone(randomInt(0, this.worldWidth), randomInt(0, this.worldHeight)));
+
+            // Respawn Enemies
+            if (Math.random() < 0.2) { // 20% chance per second
+                 this.gameObjects.push(new Wolf(randomInt(0, this.worldWidth), randomInt(0, this.worldHeight)));
+            }
         }
 
         // Clean up inactive objects
@@ -196,6 +230,50 @@ export class Game {
             this.running = false;
             document.getElementById('game-over-screen').style.display = 'flex';
         }
+    }
+
+    updateProjectiles(deltaTime) {
+        this.projectiles.forEach(p => {
+            p.update(deltaTime);
+            if (!p.active) return;
+
+            // Collision
+            if (p.owner === 'player') {
+                for (const obj of this.gameObjects) {
+                    if (!obj.active) continue;
+                    if (obj.team === 'player') continue; // Don't hit friends
+
+                    if (checkCircleCollision(p, obj)) {
+                        p.active = false;
+                        obj.health -= p.damage;
+                        this.addFloatingText(obj.x, obj.y - 20, `-${p.damage}`, 'yellow');
+                        if (obj.health <= 0) {
+                            this.handleObjectDeath(obj);
+                        }
+                        break;
+                    }
+                }
+            } else { // enemy
+                 if (checkCircleCollision(p, this.player)) {
+                     p.active = false;
+                     this.player.hp -= p.damage;
+                     this.addFloatingText(this.player.x, this.player.y - 30, `-${p.damage}`, 'red');
+                 }
+                 for (const obj of this.gameObjects) {
+                     if (!obj.active) continue;
+                     if (obj.team === 'player' && checkCircleCollision(p, obj)) {
+                         p.active = false;
+                         obj.health -= p.damage;
+                         this.addFloatingText(obj.x, obj.y - 20, `-${p.damage}`, 'red');
+                         if (obj.health <= 0) {
+                             obj.active = false;
+                         }
+                         break;
+                     }
+                 }
+            }
+        });
+        this.projectiles = this.projectiles.filter(p => p.active);
     }
 
     handlePlayerAttack() {
@@ -224,25 +302,7 @@ export class Game {
                     this.addFloatingText(obj.x, obj.y - 30, `-${this.player.damage}`, 'white');
 
                     if (obj.health <= 0) {
-                        obj.active = false;
-
-                        if (obj.resourceType && obj.resourceAmount) {
-                            this.player.resources[obj.resourceType] += obj.resourceAmount;
-                        }
-
-                        this.player.xp += 10;
-
-                        // Check Level Up
-                        if (this.player.xp >= this.player.nextLevelXp) {
-                            this.player.level++;
-                            this.player.xp -= this.player.nextLevelXp;
-                            this.player.nextLevelXp *= 1.5;
-                            this.player.maxHp += 20;
-                            this.player.hp = this.player.maxHp;
-                            this.player.damage += 5;
-                        }
-
-                        this.updateUI();
+                        this.handleObjectDeath(obj);
                     }
                 }
             }
@@ -275,6 +335,9 @@ export class Game {
 
         // Draw Effects
         this.effects.forEach(e => e.draw(this.ctx));
+
+        // Draw Projectiles
+        this.projectiles.forEach(p => p.draw(this.ctx));
 
         this.drawBuildingPreview();
 
@@ -325,6 +388,30 @@ export class Game {
 
         if (this.buildMode && this.input.mouse.down) {
             this.attemptBuild();
+        }
+    }
+
+    handleInteraction() {
+        if (this.input.isKeyDown('KeyF') && this.player.switchCooldown <= 0) {
+             this.player.switchCooldown = 500;
+             if (this.player.mountType) {
+                 // Dismount
+                 this.player.mountType = null;
+                 this.player.speed = 0.2;
+                 this.gameObjects.push(new Horse(this.player.x, this.player.y));
+                 this.addFloatingText(this.player.x, this.player.y - 40, "Dismounted", "white");
+             } else {
+                 // Try mount
+                 for (const obj of this.gameObjects) {
+                     if (obj instanceof Horse && checkCircleCollision(this.player, obj)) {
+                         obj.active = false;
+                         this.player.mountType = 'horse';
+                         this.player.speed = 0.4;
+                         this.addFloatingText(this.player.x, this.player.y - 40, "Mounted!", "white");
+                         break;
+                     }
+                 }
+             }
         }
     }
 
@@ -455,6 +542,34 @@ export class Game {
 
     addFloatingText(x, y, text, color) {
         this.effects.push(new FloatingText(x, y, text, color));
+    }
+
+    addProjectile(x, y, angle, owner) {
+        this.projectiles.push(new Projectile(x, y, angle, owner));
+    }
+
+    handleObjectDeath(obj) {
+        obj.active = false;
+
+        if (obj.resourceType && obj.resourceAmount) {
+            this.player.resources[obj.resourceType] += obj.resourceAmount;
+            this.addFloatingText(this.player.x, this.player.y - 50, `+${obj.resourceAmount} ${obj.resourceType}`, 'lime');
+        }
+
+        this.player.xp += 10;
+
+        // Check Level Up
+        if (this.player.xp >= this.player.nextLevelXp) {
+            this.player.level++;
+            this.player.xp -= this.player.nextLevelXp;
+            this.player.nextLevelXp *= 1.5;
+            this.player.maxHp += 20;
+            this.player.hp = this.player.maxHp;
+            this.player.damage += 5;
+            this.addFloatingText(this.player.x, this.player.y - 60, "LEVEL UP!", "cyan");
+        }
+
+        this.updateUI();
     }
 
     updateLeaderboardUI() {
