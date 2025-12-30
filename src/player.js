@@ -54,10 +54,10 @@ export class Player {
         let dx = 0;
         let dy = 0;
 
-        if (input.isKeyDown('w')) dy -= 1;
-        if (input.isKeyDown('s')) dy += 1;
-        if (input.isKeyDown('a')) dx -= 1;
-        if (input.isKeyDown('d')) dx += 1;
+        if (input.isKeyDown('KeyW')) dy -= 1;
+        if (input.isKeyDown('KeyS')) dy += 1;
+        if (input.isKeyDown('KeyA')) dx -= 1;
+        if (input.isKeyDown('KeyD')) dx += 1;
 
         // Normalize vector
         if (dx !== 0 || dy !== 0) {

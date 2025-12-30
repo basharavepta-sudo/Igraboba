@@ -268,10 +268,10 @@ export class Game {
     }
 
     handleBuildingInput() {
-        if (this.input.isKeyDown('1')) this.setBuildMode(Wall);
-        if (this.input.isKeyDown('2')) this.setBuildMode(StoneWall);
-        if (this.input.isKeyDown('3')) this.setBuildMode(Tower);
-        if (this.input.isKeyDown('4')) this.setBuildMode(GoldMine);
+        if (this.input.isKeyDown('Digit1')) this.setBuildMode(Wall);
+        if (this.input.isKeyDown('Digit2')) this.setBuildMode(StoneWall);
+        if (this.input.isKeyDown('Digit3')) this.setBuildMode(Tower);
+        if (this.input.isKeyDown('Digit4')) this.setBuildMode(GoldMine);
 
         if (this.input.mouse.rightDown) {
             this.buildMode = null;
@@ -289,7 +289,7 @@ export class Game {
             return;
         }
 
-        if (this.input.isKeyDown('5')) {
+        if (this.input.isKeyDown('Digit5')) {
             // Spawn Peasant
             if (this.player.resources.food >= 50) {
                 this.player.resources.food -= 50;
@@ -299,7 +299,7 @@ export class Game {
             }
         }
 
-        if (this.input.isKeyDown('6')) {
+        if (this.input.isKeyDown('Digit6')) {
             // Spawn Guard
             if (this.player.resources.food >= 50 && this.player.resources.gold >= 50) {
                 this.player.resources.food -= 50;

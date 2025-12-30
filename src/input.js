@@ -4,11 +4,11 @@ export class InputHandler {
         this.mouse = { x: 0, y: 0, down: false, rightDown: false };
 
         window.addEventListener('keydown', (e) => {
-            this.keys[e.key.toLowerCase()] = true;
+            this.keys[e.code] = true;
         });
 
         window.addEventListener('keyup', (e) => {
-            this.keys[e.key.toLowerCase()] = false;
+            this.keys[e.code] = false;
         });
 
         window.addEventListener('mousemove', (e) => {
