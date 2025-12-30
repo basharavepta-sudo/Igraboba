@@ -1,14 +1,15 @@
 export class Projectile {
-    constructor(x, y, angle, owner) {
+    constructor(x, y, angle, owner, stats = {}) {
         this.x = x;
         this.y = y;
         this.angle = angle;
         this.owner = owner; // 'player' or 'enemy'
-        this.speed = 0.8; // Fast
-        this.damage = 20;
+        this.speed = stats.speed || 0.8;
+        this.damage = stats.damage || 20;
         this.active = true;
-        this.life = 2000; // 2 seconds range
+        this.life = stats.life || 2000;
         this.radius = 5;
+        this.color = stats.color || 'black';
     }
 
     update(deltaTime) {

@@ -135,10 +135,30 @@ export class Game {
 
             // Handle Attacks
             if (this.player.justAttacked) {
-                if (this.player.weaponType === 'melee') {
+                const weapon = this.player.currentWeapon;
+                if (weapon.type === 'melee') {
                     this.handlePlayerAttack();
                 } else {
-                    this.addProjectile(this.player.x, this.player.y, this.player.angle, 'player');
+                    // Gun logic
+                    const stats = {
+                        damage: weapon.damage,
+                        speed: weapon.speed,
+                        life: weapon.range / weapon.speed, // Range approx
+                        color: weapon.color
+                    };
+
+                    if (weapon.name === 'Shotgun') {
+                        // Spread
+                        for (let i = 0; i < weapon.count; i++) {
+                            const spread = (Math.random() - 0.5) * weapon.spread;
+                            this.addProjectile(this.player.x, this.player.y, this.player.angle + spread, 'player', stats);
+                        }
+                    } else {
+                        // Single shot
+                        let spread = 0;
+                        if (weapon.name === 'AK-47') spread = (Math.random() - 0.5) * 0.1;
+                        this.addProjectile(this.player.x, this.player.y, this.player.angle + spread, 'player', stats);
+                    }
                 }
                 this.player.justAttacked = false;
             }
@@ -315,6 +335,7 @@ export class Game {
         document.getElementById('food-count').innerText = this.player.resources.food;
         document.getElementById('gold-count').innerText = this.player.resources.gold;
         document.getElementById('level-count').innerText = this.player.level;
+        document.getElementById('weapon-name').innerText = this.player.currentWeapon.name;
     }
 
     draw() {
@@ -544,8 +565,8 @@ export class Game {
         this.effects.push(new FloatingText(x, y, text, color));
     }
 
-    addProjectile(x, y, angle, owner) {
-        this.projectiles.push(new Projectile(x, y, angle, owner));
+    addProjectile(x, y, angle, owner, stats) {
+        this.projectiles.push(new Projectile(x, y, angle, owner, stats));
     }
 
     handleObjectDeath(obj) {

@@ -191,6 +191,9 @@ export class Bear extends Unit {
                     } else {
                         this.target.health -= this.damage;
                         game.addFloatingText(this.target.x, this.target.y - 20, `-${this.damage}`, 'white');
+                        if (this.target.health <= 0) {
+                            this.target.active = false;
+                        }
                     }
                     this.attackCooldown = this.attackRate;
                 }
@@ -319,6 +322,9 @@ export class Guard extends Unit {
                     this.target.health -= this.damage;
                     game.addFloatingText(this.target.x, this.target.y - 20, `-${this.damage}`, 'white');
                     this.attackCooldown = this.attackRate;
+                    if (this.target.health <= 0) {
+                        game.handleObjectDeath(this.target);
+                    }
                 }
             }
         } else {
@@ -396,6 +402,9 @@ export class Wolf extends Unit {
                     } else {
                         this.target.health -= this.damage;
                         game.addFloatingText(this.target.x, this.target.y - 20, `-${this.damage}`, 'white');
+                        if (this.target.health <= 0) {
+                            this.target.active = false;
+                        }
                     }
                     this.attackCooldown = this.attackRate;
                 }

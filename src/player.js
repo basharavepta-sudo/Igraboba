@@ -28,18 +28,35 @@ export class Player {
         this.damage = 10;
         this.weaponAngle = 0;
         this.isAttacking = false;
-        this.weaponType = 'melee'; // 'melee' or 'gun'
+
+        this.weapons = [
+            { name: 'Sword', type: 'melee', damage: 10, range: 80, rate: 500, color: '#95a5a6' },
+            { name: 'Pistol', type: 'gun', damage: 15, range: 400, rate: 400, speed: 0.8, color: '#2c3e50', length: 30 },
+            { name: 'AK-47', type: 'gun', damage: 8, range: 600, rate: 100, speed: 1.0, color: '#8e44ad', length: 45 },
+            { name: 'Shotgun', type: 'gun', damage: 8, range: 300, rate: 800, speed: 0.7, count: 5, spread: 0.3, color: '#c0392b', length: 35 },
+            { name: 'Sniper', type: 'gun', damage: 50, range: 1000, rate: 1500, speed: 2.0, color: '#27ae60', length: 60 }
+        ];
+        this.weaponIndex = 0;
         this.switchCooldown = 0;
         this.mountType = null;
+    }
+
+    get currentWeapon() {
+        return this.weapons[this.weaponIndex];
     }
 
     update(deltaTime, input, canAttack = true) {
         // Switch Weapon
         if (this.switchCooldown > 0) this.switchCooldown -= deltaTime;
         if (input.isKeyDown('KeyQ') && this.switchCooldown <= 0) {
-            this.weaponType = this.weaponType === 'melee' ? 'gun' : 'melee';
+            this.weaponIndex = (this.weaponIndex + 1) % this.weapons.length;
             this.switchCooldown = 300;
         }
+
+        // Update Stats based on weapon
+        this.damage = this.currentWeapon.damage;
+        this.attackSpeed = this.currentWeapon.rate;
+
         // Attack Cooldown
         if (this.attackCooldown > 0) {
             this.attackCooldown -= deltaTime;
@@ -137,20 +154,21 @@ export class Player {
         ctx.fill();
         ctx.stroke();
 
-        // Draw Weapon (Sword/Tool or Gun) attached to right hand
+        // Draw Weapon attached to right hand
         ctx.save();
         ctx.translate(this.radius, 10); // Pivot at hand
         ctx.rotate(this.weaponAngle);
 
-        if (this.weaponType === 'gun') {
+        const weapon = this.currentWeapon;
+        if (weapon.type === 'gun') {
              // Draw Gun
-             ctx.fillStyle = '#2c3e50';
-             ctx.fillRect(0, -5, 20, 10); // Handle
-             ctx.fillStyle = '#7f8c8d';
-             ctx.fillRect(10, -5, 30, 6); // Barrel
+             ctx.fillStyle = '#2c3e50'; // Handle
+             ctx.fillRect(0, -5, 20, 10);
+             ctx.fillStyle = weapon.color; // Barrel/Body
+             ctx.fillRect(10, -5, weapon.length, 6);
         } else {
              // Draw Sword
-             ctx.fillStyle = '#95a5a6';
+             ctx.fillStyle = weapon.color;
              ctx.fillRect(0, -5, 35, 10);
         }
         ctx.restore();
