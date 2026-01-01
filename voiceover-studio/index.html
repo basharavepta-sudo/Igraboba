@@ -11,6 +11,10 @@
         <!-- Верхняя панель инструментов -->
         <header class="toolbar">
             <div class="toolbar-section toolbar-left">
+                <button id="btn-import-video" class="tool-btn" title="Импорт видео (Ctrl+Shift+O)">
+                    <svg viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4zM14 13h-3v3H9v-3H6v-2h3V8h2v3h3v2z"/></svg>
+                    <span class="btn-text">Видео</span>
+                </button>
                 <button id="btn-import-audio" class="tool-btn" title="Импорт аудио (Ctrl+O)">
                     <svg viewBox="0 0 24 24"><path d="M9 16h6v-6h4l-7-7-7 7h4v6zm-4 2h14v2H5v-2z"/></svg>
                     <span class="btn-text">Аудио</span>
@@ -65,6 +69,18 @@
                 </button>
             </div>
         </header>
+
+        <!-- Видео превью -->
+        <div class="video-panel" id="video-panel">
+            <div class="video-container">
+                <video id="video-player" playsinline></video>
+                <div class="video-placeholder" id="video-placeholder">
+                    <svg viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+                    <p>Загрузите видео для просмотра</p>
+                </div>
+            </div>
+            <button class="video-close-btn" id="video-close-btn" title="Скрыть видео">&times;</button>
+        </div>
 
         <!-- Основная область -->
         <main class="main-area">
@@ -429,6 +445,7 @@
     </div>
 
     <!-- Скрытые инпуты для загрузки файлов -->
+    <input type="file" id="video-input" accept="video/*" style="display: none">
     <input type="file" id="audio-input" accept="audio/*" style="display: none">
     <input type="file" id="srt-input" accept=".srt,.txt" style="display: none">
 

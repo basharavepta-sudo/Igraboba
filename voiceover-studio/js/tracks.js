@@ -62,6 +62,7 @@ class TracksPanel extends Utils.EventEmitter {
             volume: 1,
             muted: false,
             solo: false,
+            armed: false, // For recording
             audioBuffer: null,
             clips: []
         };
@@ -154,6 +155,7 @@ class TracksPanel extends Utils.EventEmitter {
                 <input type="text" value="${track.name}" title="Track name">
             </div>
             <div class="track-controls">
+                <button class="track-btn arm" title="Arm for recording (A)">●</button>
                 <button class="track-btn mute" title="Mute (M)">M</button>
                 <button class="track-btn solo" title="Solo (S)">S</button>
                 <input type="range" class="track-volume" min="0" max="100" value="${track.volume * 100}" title="Volume">
@@ -168,9 +170,30 @@ class TracksPanel extends Utils.EventEmitter {
             this.emit('trackRenamed', track);
         });
 
+        // ARM button (record enable)
+        const armBtn = trackEl.querySelector('.arm');
+        armBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            // Disarm all other tracks first
+            this.tracks.forEach(t => {
+                if (t.id !== track.id && t.armed) {
+                    t.armed = false;
+                    const otherTrackEl = this.tracksList.querySelector(`[data-track-id="${t.id}"]`);
+                    if (otherTrackEl) {
+                        otherTrackEl.querySelector('.arm').classList.remove('active');
+                    }
+                }
+            });
+            // Toggle this track's arm state
+            track.armed = !track.armed;
+            armBtn.classList.toggle('active', track.armed);
+            this.emit('trackArmChanged', track);
+        });
+
         // Mute button
         const muteBtn = trackEl.querySelector('.mute');
-        muteBtn.addEventListener('click', () => {
+        muteBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
             track.muted = !track.muted;
             muteBtn.classList.toggle('active', track.muted);
             this.audioEngine.setTrackMute(track.id, track.muted);
@@ -179,7 +202,8 @@ class TracksPanel extends Utils.EventEmitter {
 
         // Solo button
         const soloBtn = trackEl.querySelector('.solo');
-        soloBtn.addEventListener('click', () => {
+        soloBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
             track.solo = !track.solo;
             soloBtn.classList.toggle('active', track.solo);
             this.audioEngine.setTrackSolo(track.id, track.solo);
@@ -208,6 +232,13 @@ class TracksPanel extends Utils.EventEmitter {
         });
 
         this.tracksList.appendChild(trackEl);
+    }
+
+    /**
+     * Get armed track for recording
+     */
+    getArmedTrack() {
+        return this.tracks.find(t => t.armed);
     }
 
     /**

@@ -1342,3 +1342,104 @@ body {
 .toast.warning {
     border-left: 4px solid var(--warning);
 }
+
+/* ========== VIDEO PANEL ========== */
+.video-panel {
+    display: none;
+    position: relative;
+    background: #000;
+    border-bottom: 1px solid var(--border);
+    height: 200px;
+    flex-shrink: 0;
+}
+
+.video-panel.visible {
+    display: block;
+}
+
+.video-container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.video-container video {
+    max-width: 100%;
+    max-height: 100%;
+    display: none;
+}
+
+.video-container video.loaded {
+    display: block;
+}
+
+.video-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    text-align: center;
+}
+
+.video-placeholder svg {
+    width: 48px;
+    height: 48px;
+    fill: var(--text-muted);
+    opacity: 0.5;
+    margin-bottom: 8px;
+}
+
+.video-placeholder p {
+    font-size: 13px;
+}
+
+.video-placeholder.hidden {
+    display: none;
+}
+
+.video-close-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.6);
+    border: none;
+    border-radius: var(--radius-sm);
+    color: white;
+    cursor: pointer;
+    font-size: 18px;
+    z-index: 10;
+    transition: var(--transition);
+}
+
+.video-close-btn:hover {
+    background: rgba(0, 0, 0, 0.8);
+}
+
+/* ========== ARM BUTTON (Record Enable) ========== */
+.track-btn.arm {
+    font-size: 12px;
+}
+
+.track-btn.arm.active {
+    background: var(--record);
+    color: white;
+    animation: armPulse 1.5s infinite;
+}
+
+@keyframes armPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+    50% { box-shadow: 0 0 0 4px rgba(239, 68, 68, 0); }
+}
+
+/* ========== TIMELINE CLICK AREA ========== */
+.timeline-tracks {
+    cursor: pointer;
+}

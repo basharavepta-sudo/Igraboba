@@ -68,6 +68,10 @@ class Timeline extends Utils.EventEmitter {
         this.rulerCanvas.addEventListener('mousedown', (e) => this.handleRulerMouseDown(e));
         this.rulerCanvas.addEventListener('touchstart', (e) => this.handleRulerTouchStart(e));
 
+        // Tracks container click for seeking (anywhere on timeline)
+        this.tracksContainer.addEventListener('mousedown', (e) => this.handleTracksMouseDown(e));
+        this.tracksContainer.addEventListener('touchstart', (e) => this.handleTracksTouchStart(e));
+
         // Tracks container for scrolling and clip interaction
         this.tracksContainer.addEventListener('scroll', () => {
             this.scrollX = this.tracksContainer.scrollLeft;
@@ -506,6 +510,38 @@ class Timeline extends Utils.EventEmitter {
         const touch = e.touches[0];
         const rect = this.rulerCanvas.getBoundingClientRect();
         const x = touch.clientX - rect.left + this.scrollX;
+        const time = this.xToTime(x);
+
+        this.emit('seek', Utils.clamp(time, 0, this.duration));
+        this.startDrag({ clientX: touch.clientX, clientY: touch.clientY }, 'scrub');
+    }
+
+    /**
+     * Handle tracks container mouse down (click anywhere on timeline)
+     */
+    handleTracksMouseDown(e) {
+        // Ignore if clicking on a clip or handle
+        if (e.target.closest('.subtitle-clip')) return;
+
+        e.preventDefault();
+        const rect = this.tracksContainer.getBoundingClientRect();
+        const x = e.clientX - rect.left + this.tracksContainer.scrollLeft;
+        const time = this.xToTime(x);
+
+        this.emit('seek', Utils.clamp(time, 0, this.duration));
+        this.startDrag(e, 'scrub');
+    }
+
+    /**
+     * Handle tracks container touch start
+     */
+    handleTracksTouchStart(e) {
+        // Ignore if touching a clip
+        if (e.target.closest('.subtitle-clip')) return;
+
+        const touch = e.touches[0];
+        const rect = this.tracksContainer.getBoundingClientRect();
+        const x = touch.clientX - rect.left + this.tracksContainer.scrollLeft;
         const time = this.xToTime(x);
 
         this.emit('seek', Utils.clamp(time, 0, this.duration));

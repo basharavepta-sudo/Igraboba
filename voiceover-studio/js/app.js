@@ -16,6 +16,7 @@ class VoiceOverStudio {
         // UI Elements
         this.elements = {
             // Toolbar buttons
+            btnImportVideo: document.getElementById('btn-import-video'),
             btnImportAudio: document.getElementById('btn-import-audio'),
             btnImportSrt: document.getElementById('btn-import-srt'),
             btnAddMarker: document.getElementById('btn-add-marker'),
@@ -34,8 +35,15 @@ class VoiceOverStudio {
             totalTime: document.getElementById('total-time'),
 
             // File inputs
+            videoInput: document.getElementById('video-input'),
             audioInput: document.getElementById('audio-input'),
             srtInput: document.getElementById('srt-input'),
+
+            // Video
+            videoPanel: document.getElementById('video-panel'),
+            videoPlayer: document.getElementById('video-player'),
+            videoPlaceholder: document.getElementById('video-placeholder'),
+            videoCloseBtn: document.getElementById('video-close-btn'),
 
             // Zoom
             zoomSlider: document.getElementById('zoom-slider'),
@@ -93,6 +101,23 @@ class VoiceOverStudio {
      * Setup toolbar button events
      */
     setupToolbarEvents() {
+        // Import video
+        this.elements.btnImportVideo.addEventListener('click', () => {
+            this.elements.videoInput.click();
+        });
+
+        this.elements.videoInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                this.importVideo(e.target.files[0]);
+                e.target.value = '';
+            }
+        });
+
+        // Video close button
+        this.elements.videoCloseBtn.addEventListener('click', () => {
+            this.hideVideo();
+        });
+
         // Import audio
         this.elements.btnImportAudio.addEventListener('click', () => {
             this.elements.audioInput.click();
@@ -296,7 +321,10 @@ class VoiceOverStudio {
 
                 case 'o':
                 case 'O':
-                    if (e.ctrlKey || e.metaKey) {
+                    if ((e.ctrlKey || e.metaKey) && e.shiftKey) {
+                        e.preventDefault();
+                        this.elements.videoInput.click();
+                    } else if (e.ctrlKey || e.metaKey) {
                         e.preventDefault();
                         this.elements.audioInput.click();
                     }
@@ -337,21 +365,32 @@ class VoiceOverStudio {
         this.audioEngine.on('timeUpdate', (time) => {
             this.updateTimeDisplay(time);
             this.timeline.setCurrentTime(time);
+            this.syncVideoToTime(time);
         });
 
         this.audioEngine.on('play', () => {
             this.isPlaying = true;
             this.elements.btnPlay.classList.add('playing');
+            if (this.elements.videoPlayer.src) {
+                this.elements.videoPlayer.play().catch(() => {});
+            }
         });
 
         this.audioEngine.on('pause', () => {
             this.isPlaying = false;
             this.elements.btnPlay.classList.remove('playing');
+            if (this.elements.videoPlayer.src) {
+                this.elements.videoPlayer.pause();
+            }
         });
 
         this.audioEngine.on('stop', () => {
             this.isPlaying = false;
             this.elements.btnPlay.classList.remove('playing');
+            if (this.elements.videoPlayer.src) {
+                this.elements.videoPlayer.pause();
+                this.elements.videoPlayer.currentTime = 0;
+            }
         });
 
         this.audioEngine.on('durationChange', (duration) => {
@@ -365,6 +404,10 @@ class VoiceOverStudio {
 
         this.audioEngine.on('recordingStop', () => {
             this.elements.btnRecord.classList.remove('recording');
+        });
+
+        this.audioEngine.on('recordingComplete', (data) => {
+            this.handleRecordingComplete(data);
         });
 
         // Timeline events
@@ -486,6 +529,69 @@ class VoiceOverStudio {
     }
 
     /**
+     * Import video file
+     */
+    importVideo(file) {
+        try {
+            Utils.showToast(`Загрузка видео ${file.name}...`, 'info');
+
+            const url = URL.createObjectURL(file);
+            this.elements.videoPlayer.src = url;
+            this.elements.videoPlayer.muted = true; // Mute video - we use our audio
+
+            this.elements.videoPlayer.addEventListener('loadedmetadata', () => {
+                // Update duration if video is longer
+                if (this.elements.videoPlayer.duration > this.audioEngine.duration) {
+                    this.audioEngine.duration = this.elements.videoPlayer.duration;
+                    this.timeline.setDuration(this.audioEngine.duration);
+                    this.elements.totalTime.textContent = Utils.formatTime(this.audioEngine.duration);
+                }
+
+                // Show video panel
+                this.showVideo();
+
+                Utils.showToast(`Видео загружено: ${Utils.formatTime(this.elements.videoPlayer.duration)}`, 'success');
+            }, { once: true });
+
+            this.elements.videoPlayer.addEventListener('error', () => {
+                Utils.showToast('Не удалось загрузить видео', 'error');
+            }, { once: true });
+
+        } catch (error) {
+            console.error('Failed to import video:', error);
+            Utils.showToast('Не удалось загрузить видео', 'error');
+        }
+    }
+
+    /**
+     * Show video panel
+     */
+    showVideo() {
+        this.elements.videoPanel.classList.add('visible');
+        this.elements.videoPlaceholder.style.display = 'none';
+        this.elements.videoPlayer.style.display = 'block';
+    }
+
+    /**
+     * Hide video panel
+     */
+    hideVideo() {
+        this.elements.videoPanel.classList.remove('visible');
+    }
+
+    /**
+     * Sync video playback with audio time
+     */
+    syncVideoToTime(time) {
+        if (this.elements.videoPlayer.src && !this.elements.videoPlayer.paused === false) {
+            // Only sync if difference is significant (more than 0.1s)
+            if (Math.abs(this.elements.videoPlayer.currentTime - time) > 0.1) {
+                this.elements.videoPlayer.currentTime = time;
+            }
+        }
+    }
+
+    /**
      * Toggle playback
      */
     togglePlayback() {
@@ -519,8 +625,81 @@ class VoiceOverStudio {
         if (this.audioEngine.isRecording) {
             this.audioEngine.stopRecording();
         } else {
+            // Check if there's an armed track
+            const armedTrack = this.tracksPanel.getArmedTrack();
+            if (!armedTrack) {
+                Utils.showToast('Выберите дорожку для записи (нажмите ● на дорожке)', 'warning');
+                return;
+            }
+
+            // Store recording start time and track
+            this.recordingStartTime = this.audioEngine.getCurrentTime();
+            this.recordingTrackId = armedTrack.id;
+
             this.audioEngine.startRecording();
         }
+    }
+
+    /**
+     * Handle recording complete
+     */
+    handleRecordingComplete(data) {
+        const { buffer: audioBuffer, blob } = data;
+
+        if (!this.recordingTrackId) {
+            console.warn('No track selected for recording');
+            return;
+        }
+
+        const track = this.tracksPanel.getTrack(this.recordingTrackId);
+        if (!track) {
+            console.warn('Recording track not found');
+            return;
+        }
+
+        // Create a clip for the recorded audio
+        const clipId = Utils.generateId();
+        const duration = audioBuffer.duration;
+        const startTime = this.recordingStartTime || 0;
+
+        const clip = {
+            id: clipId,
+            type: 'recording',
+            startTime: startTime,
+            endTime: startTime + duration,
+            audioBuffer: audioBuffer,
+            blob: blob,
+            color: track.color,
+            text: `Recording ${new Date().toLocaleTimeString()}`
+        };
+
+        // Add clip to track
+        track.clips.push(clip);
+        track.clips.sort((a, b) => a.startTime - b.startTime);
+
+        // Update audio engine
+        const audioTrack = this.audioEngine.getTrack(this.recordingTrackId);
+        if (audioTrack) {
+            audioTrack.clips = track.clips;
+            if (!audioTrack.audioBuffer) {
+                audioTrack.audioBuffer = audioBuffer;
+            }
+        }
+
+        // Update duration if needed
+        if (clip.endTime > this.audioEngine.duration) {
+            this.audioEngine.duration = clip.endTime + 5;
+            this.timeline.setDuration(this.audioEngine.duration);
+        }
+
+        // Refresh timeline
+        this.timeline.renderTrack(track);
+
+        Utils.showToast(`Записано ${Utils.formatTime(duration)}`, 'success');
+
+        // Clear recording state
+        this.recordingStartTime = null;
+        this.recordingTrackId = null;
     }
 
     /**
