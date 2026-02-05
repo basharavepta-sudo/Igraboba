@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>VoiceOver Studio</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Верхняя панель инструментов -->
+        <header class="toolbar">
+            <div class="toolbar-section toolbar-left">
+                <button id="btn-import-video" class="tool-btn" title="Импорт видео (Ctrl+Shift+O)">
+                    <svg viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4zM14 13h-3v3H9v-3H6v-2h3V8h2v3h3v2z"/></svg>
+                    <span class="btn-text">Видео</span>
+                </button>
+                <button id="btn-import-audio" class="tool-btn" title="Импорт аудио (Ctrl+O)">
+                    <svg viewBox="0 0 24 24"><path d="M9 16h6v-6h4l-7-7-7 7h4v6zm-4 2h14v2H5v-2z"/></svg>
+                    <span class="btn-text">Аудио</span>
+                </button>
+                <button id="btn-import-srt" class="tool-btn" title="Импорт SRT субтитров (Ctrl+I)">
+                    <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM6 20V4h7v5h5v11H6z"/></svg>
+                    <span class="btn-text">SRT</span>
+                </button>
+                <div class="divider"></div>
+                <button id="btn-add-marker" class="tool-btn" title="Добавить маркер (M)">
+                    <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 0 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>
+                    <span class="btn-text">Маркер</span>
+                </button>
+            </div>
+
+            <div class="toolbar-section toolbar-center">
+                <!-- Транспорт -->
+                <div class="transport">
+                    <button id="btn-prev-subtitle" class="transport-btn" title="Предыдущий субтитр (,)">
+                        <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6V6zm3.5 6l8.5 6V6l-8.5 6z"/></svg>
+                    </button>
+                    <button id="btn-stop" class="transport-btn" title="Стоп (Space)">
+                        <svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12"/></svg>
+                    </button>
+                    <button id="btn-play" class="transport-btn play-btn" title="Воспроизведение (Space)">
+                        <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7L8 5z"/></svg>
+                    </button>
+                    <button id="btn-record" class="transport-btn record-btn" title="Запись (R)">
+                        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg>
+                    </button>
+                    <button id="btn-next-subtitle" class="transport-btn" title="Следующий субтитр (.)">
+                        <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zm2 0V6l6.5 6L8 18zm8-12v12h2V6h-2z"/></svg>
+                    </button>
+                </div>
+
+                <!-- Время -->
+                <div class="time-display">
+                    <span id="current-time">00:00:00.000</span>
+                    <span class="time-separator">/</span>
+                    <span id="total-time">00:00:00.000</span>
+                </div>
+            </div>
+
+            <div class="toolbar-section toolbar-right">
+                <button id="btn-settings" class="tool-btn" title="Настройки (Ctrl+,)">
+                    <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 0 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6a3.6 3.6 0 1 1 0-7.2 3.6 3.6 0 0 1 0 7.2z"/></svg>
+                    <span class="btn-text">Настройки</span>
+                </button>
+                <button id="btn-export" class="tool-btn primary" title="Экспорт (Ctrl+E)">
+                    <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                    <span class="btn-text">Экспорт</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Видео превью -->
+        <div class="video-panel" id="video-panel">
+            <div class="video-container">
+                <video id="video-player" playsinline></video>
+                <div class="video-placeholder" id="video-placeholder">
+                    <svg viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+                    <p>Загрузите видео для просмотра</p>
+                </div>
+            </div>
+            <button class="video-close-btn" id="video-close-btn" title="Скрыть видео">&times;</button>
+        </div>
+
+        <!-- Основная область -->
+        <main class="main-area">
+            <!-- Панель треков слева -->
+            <aside class="tracks-panel">
+                <div class="track-header">
+                    <span>Треки</span>
+                    <button id="btn-add-track" class="small-btn" title="Добавить трек">+</button>
+                </div>
+                <div id="tracks-list" class="tracks-list">
+                    <!-- Треки будут добавляться динамически -->
+                </div>
+            </aside>
+
+            <!-- Таймлайн -->
+            <div class="timeline-container">
+                <!-- Линейка времени -->
+                <div class="timeline-ruler" id="timeline-ruler">
+                    <canvas id="ruler-canvas"></canvas>
+                </div>
+
+                <!-- Маркеры -->
+                <div class="markers-lane" id="markers-lane"></div>
+
+                <!-- Область треков таймлайна -->
+                <div class="timeline-tracks" id="timeline-tracks">
+                    <!-- Треки с субтитрами будут здесь -->
+                </div>
+
+                <!-- Курсор воспроизведения -->
+                <div class="playhead" id="playhead">
+                    <div class="playhead-head"></div>
+                    <div class="playhead-line"></div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Нижняя панель с редактором субтитра -->
+        <footer class="subtitle-editor">
+            <div class="editor-section">
+                <label>Текст субтитра:</label>
+                <textarea id="subtitle-text" placeholder="Выберите субтитр для редактирования..." disabled></textarea>
+            </div>
+            <div class="editor-timing">
+                <div class="timing-group">
+                    <label>Начало:</label>
+                    <input type="text" id="subtitle-start" placeholder="00:00:00,000" disabled>
+                </div>
+                <div class="timing-group">
+                    <label>Конец:</label>
+                    <input type="text" id="subtitle-end" placeholder="00:00:00,000" disabled>
+                </div>
+                <div class="timing-group">
+                    <label>Длительность:</label>
+                    <span id="subtitle-duration">-</span>
+                </div>
+            </div>
+            <div class="editor-actions">
+                <button id="btn-prev-sub" class="nav-btn" title="Предыдущий (,)">&#9664;</button>
+                <button id="btn-play-sub" class="nav-btn" title="Воспроизвести субтитр (Enter)">&#9654;</button>
+                <button id="btn-next-sub" class="nav-btn" title="Следующий (.)">&#9654;</button>
+            </div>
+        </footer>
+
+        <!-- Панель просмотра текущего субтитра (для актёра) -->
+        <div class="subtitle-preview" id="subtitle-preview">
+            <div class="preview-text" id="preview-text">
+                Загрузите SRT файл для начала работы
+            </div>
+            <div class="preview-counter" id="preview-counter"></div>
+        </div>
+
+        <!-- Zoom control -->
+        <div class="zoom-control">
+            <button id="btn-zoom-out" title="Уменьшить масштаб (-)">-</button>
+            <input type="range" id="zoom-slider" min="10" max="500" value="100">
+            <button id="btn-zoom-in" title="Увеличить масштаб (+)">+</button>
+            <span id="zoom-value">100%</span>
+        </div>
+    </div>
+
+    <!-- Модальное окно настроек -->
+    <div class="modal" id="settings-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Настройки</h2>
+                <button class="close-btn" id="close-settings">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="settings-tabs">
+                    <button class="tab-btn active" data-tab="ducking">Дакинг</button>
+                    <button class="tab-btn" data-tab="audio">Аудио</button>
+                    <button class="tab-btn" data-tab="display">Отображение</button>
+                    <button class="tab-btn" data-tab="hotkeys">Горячие клавиши</button>
+                </div>
+
+                <div class="settings-content">
+                    <!-- Дакинг -->
+                    <div class="tab-content active" id="tab-ducking">
+                        <div class="setting-group">
+                            <label class="setting-label">
+                                <input type="checkbox" id="ducking-enabled" checked>
+                                Включить автодакинг
+                            </label>
+                            <p class="setting-hint">Автоматически приглушать фоновое аудио при воспроизведении озвучки</p>
+                        </div>
+
+                        <div class="setting-group">
+                            <label>Уровень дакинга: <span id="ducking-level-value">-12</span> дБ</label>
+                            <input type="range" id="ducking-level" min="-30" max="0" value="-12">
+                        </div>
+
+                        <div class="setting-group">
+                            <label>Время атаки: <span id="ducking-attack-value">50</span> мс</label>
+                            <input type="range" id="ducking-attack" min="0" max="500" value="50">
+                        </div>
+
+                        <div class="setting-group">
+                            <label>Время релиза: <span id="ducking-release-value">200</span> мс</label>
+                            <input type="range" id="ducking-release" min="0" max="1000" value="200">
+                        </div>
+
+                        <div class="setting-group">
+                            <label>Предварительный дакинг: <span id="ducking-lookahead-value">100</span> мс</label>
+                            <input type="range" id="ducking-lookahead" min="0" max="500" value="100">
+                            <p class="setting-hint">Начать приглушение заранее перед субтитром</p>
+                        </div>
+                    </div>
+
+                    <!-- Аудио -->
+                    <div class="tab-content" id="tab-audio">
+                        <div class="setting-group">
+                            <label>Устройство ввода:</label>
+                            <select id="input-device">
+                                <option value="">Загрузка устройств...</option>
+                            </select>
+                        </div>
+
+                        <div class="setting-group">
+                            <label>Устройство вывода:</label>
+                            <select id="output-device">
+                                <option value="">По умолчанию</option>
+                            </select>
+                        </div>
+
+                        <div class="setting-group">
+                            <label>Частота дискретизации:</label>
+                            <select id="sample-rate">
+                                <option value="44100">44100 Hz</option>
+                                <option value="48000" selected>48000 Hz</option>
+                                <option value="96000">96000 Hz</option>
+                            </select>
+                        </div>
+
+                        <div class="setting-group">
+                            <label>Размер буфера:</label>
+                            <select id="buffer-size">
+                                <option value="256">256 (низкая задержка)</option>
+                                <option value="512" selected>512</option>
+                                <option value="1024">1024</option>
+                                <option value="2048">2048 (стабильность)</option>
+                            </select>
+                        </div>
+
+                        <div class="setting-group">
+                            <label class="setting-label">
+                                <input type="checkbox" id="monitor-enabled">
+                                Мониторинг при записи
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Отображение -->
+                    <div class="tab-content" id="tab-display">
+                        <div class="setting-group">
+                            <label>Высота трека:</label>
+                            <select id="track-height">
+                                <option value="60">Маленький</option>
+                                <option value="80" selected>Средний</option>
+                                <option value="120">Большой</option>
+                            </select>
+                        </div>
+
+                        <div class="setting-group">
+                            <label class="setting-label">
+                                <input type="checkbox" id="show-waveform" checked>
+                                Показывать волновую форму
+                            </label>
+                        </div>
+
+                        <div class="setting-group">
+                            <label class="setting-label">
+                                <input type="checkbox" id="snap-to-grid" checked>
+                                Привязка к сетке
+                            </label>
+                        </div>
+
+                        <div class="setting-group">
+                            <label>Размер сетки:</label>
+                            <select id="grid-size">
+                                <option value="0.1">100 мс</option>
+                                <option value="0.25">250 мс</option>
+                                <option value="0.5" selected>500 мс</option>
+                                <option value="1">1 секунда</option>
+                            </select>
+                        </div>
+
+                        <div class="setting-group">
+                            <label>Размер шрифта субтитра:</label>
+                            <select id="subtitle-font-size">
+                                <option value="14">14px</option>
+                                <option value="16" selected>16px</option>
+                                <option value="18">18px</option>
+                                <option value="24">24px</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Горячие клавиши -->
+                    <div class="tab-content" id="tab-hotkeys">
+                        <div class="hotkeys-list">
+                            <div class="hotkey-item">
+                                <span>Воспроизведение/Пауза</span>
+                                <kbd>Space</kbd>
+                            </div>
+                            <div class="hotkey-item">
+                                <span>Запись</span>
+                                <kbd>R</kbd>
+                            </div>
+                            <div class="hotkey-item">
+                                <span>Стоп</span>
+                                <kbd>Esc</kbd>
+                            </div>
+                            <div class="hotkey-item">
+                                <span>Добавить маркер</span>
+                                <kbd>M</kbd>
+                            </div>
+                            <div class="hotkey-item">
+                                <span>Предыдущий субтитр</span>
+                                <kbd>,</kbd>
+                            </div>
+                            <div class="hotkey-item">
+                                <span>Следующий субтитр</span>
+                                <kbd>.</kbd>
+                            </div>
+                            <div class="hotkey-item">
+                                <span>Импорт аудио</span>
+                                <kbd>Ctrl+O</kbd>
+                            </div>
+                            <div class="hotkey-item">
+                                <span>Импорт SRT</span>
+                                <kbd>Ctrl+I</kbd>
+                            </div>
+                            <div class="hotkey-item">
+                                <span>Экспорт</span>
+                                <kbd>Ctrl+E</kbd>
+                            </div>
+                            <div class="hotkey-item">
+                                <span>Увеличить масштаб</span>
+                                <kbd>+</kbd> / <kbd>=</kbd>
+                            </div>
+                            <div class="hotkey-item">
+                                <span>Уменьшить масштаб</span>
+                                <kbd>-</kbd>
+                            </div>
+                            <div class="hotkey-item">
+                                <span>Перейти к началу</span>
+                                <kbd>Home</kbd>
+                            </div>
+                            <div class="hotkey-item">
+                                <span>Воспроизвести текущий субтитр</span>
+                                <kbd>Enter</kbd>
+                            </div>
+                            <div class="hotkey-item">
+                                <span>Удалить выбранное</span>
+                                <kbd>Delete</kbd>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="btn-reset-settings" class="secondary-btn">Сбросить</button>
+                <button id="btn-save-settings" class="primary-btn">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно экспорта -->
+    <div class="modal" id="export-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Экспорт</h2>
+                <button class="close-btn" id="close-export">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="export-options">
+                    <div class="export-section">
+                        <h3>Аудио</h3>
+                        <div class="setting-group">
+                            <label class="setting-label">
+                                <input type="checkbox" id="export-audio" checked>
+                                Экспортировать аудио
+                            </label>
+                        </div>
+                        <div class="setting-group">
+                            <label>Формат:</label>
+                            <select id="export-format">
+                                <option value="wav">WAV (без сжатия)</option>
+                                <option value="mp3">MP3</option>
+                                <option value="ogg">OGG</option>
+                            </select>
+                        </div>
+                        <div class="setting-group">
+                            <label class="setting-label">
+                                <input type="checkbox" id="export-mix" checked>
+                                Микс всех треков
+                            </label>
+                        </div>
+                        <div class="setting-group">
+                            <label class="setting-label">
+                                <input type="checkbox" id="export-separate">
+                                Отдельные треки
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="export-section">
+                        <h3>Маркеры</h3>
+                        <div class="setting-group">
+                            <label class="setting-label">
+                                <input type="checkbox" id="export-markers">
+                                Экспортировать маркеры
+                            </label>
+                        </div>
+                        <div class="setting-group">
+                            <label>Формат маркеров:</label>
+                            <select id="markers-format">
+                                <option value="txt">TXT</option>
+                                <option value="csv">CSV</option>
+                                <option value="json">JSON</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="export-section">
+                        <h3>Субтитры</h3>
+                        <div class="setting-group">
+                            <label class="setting-label">
+                                <input type="checkbox" id="export-srt">
+                                Экспортировать SRT
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="btn-cancel-export" class="secondary-btn">Отмена</button>
+                <button id="btn-do-export" class="primary-btn">Экспортировать</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Скрытые инпуты для загрузки файлов -->
+    <input type="file" id="video-input" accept="video/*" style="display: none">
+    <input type="file" id="audio-input" accept="audio/*" style="display: none">
+    <input type="file" id="srt-input" accept=".srt,.txt" style="display: none">
+
+    <script src="js/utils.js"></script>
+    <script src="js/audio-engine.js"></script>
+    <script src="js/srt-parser.js"></script>
+    <script src="js/timeline.js"></script>
+    <script src="js/markers.js"></script>
+    <script src="js/tracks.js"></script>
+    <script src="js/export.js"></script>
+    <script src="js/settings.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
